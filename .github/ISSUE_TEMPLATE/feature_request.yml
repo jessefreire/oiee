@@ -1,0 +1,33 @@
+name: ✨ Sugerir funcionalidade
+description: Uma ideia para melhorar o Flow Local
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pela sugestão! Descreva a funcionalidade pensando em **quem vai usar** e **como** ela resolve um problema real.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema isso resolve?
+      description: O que você queria fazer e não conseguiu?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Como você imagina a solução?
+      description: Descreva o comportamento ideal.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas
+      description: O que você já tentou ou usaria no lugar?
+  - type: textarea
+    id: extra
+    attributes:
+      label: Contexto extra
+      description: Exemplos de uso, prints, links — tudo ajuda.

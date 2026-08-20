@@ -1,0 +1,62 @@
+name: 🐛 Reportar bug
+description: Algo não funciona como esperado
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! Antes de abrir, procure se já não existe uma issue parecida.
+  - type: input
+    id: version
+    attributes:
+      label: Versão do app
+      description: Qual versão você está usando? (ex.: FlowLocal-Setup-0.1.0.exe ou "rodando do código")
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Windows
+      description: Qual versão do Windows?
+      options:
+        - Windows 11
+        - Windows 10
+        - Outro
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o problema com o máximo de detalhes possível.
+      placeholder: "Segurei o atalho, falei, mas nada foi digitado…"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Passos para reproduzir
+      description: O que você fez exatamente?
+      placeholder: |
+        1. Abri o app
+        2. Segurei Alt Direito e falei
+        3. ...
+  - type: input
+    id: app
+    attributes:
+      label: Onde o texto deveria aparecer?
+      description: Em qual aplicativo você estava digitando? (Word, navegador, Bloco de Notas…)
+  - type: textarea
+    id: log
+    attributes:
+      label: Log de erro
+      description: Se o app fechou sozinho, cole aqui o conteúdo do arquivo flow-local-error.log (fica ao lado do executável).
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Configurações usadas
+      description: Atalho, modo (segurar/alternar), modelo e idioma escolhidos. **Remova sua chave Pix antes de colar**, se ela estiver em config.json!
+      placeholder: "Atalho: right alt · Modo: segurar · Modelo: base · Idioma: pt"

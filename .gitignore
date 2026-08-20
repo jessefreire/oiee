@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+config.json
+build/
+dist/
+*.spec
+flow-local-error.log
+oiee-error.log
+FlowLocal/
+Oiee/
+.freebuff/
+debug-argv.txt
+
+huggingface/
+config-instalado.json
