@@ -292,6 +292,16 @@ def test_vocabulary_becomes_whisper_context():
     print("OK: vocabulário vira contexto do Whisper")
 
 
+def test_user_profile_learns_and_reuses_confirmed_correction():
+    cfg = Config(vocabulary="Oiee")
+    learned = cfg.learn_corrections("fale com jece sobre oie", "fale com Jesse sobre Oiee")
+    assert learned == 2, cfg.corrections
+    assert cfg.apply_corrections("jece abriu o oie") == "Jesse abriu o Oiee"
+    context = cfg.learned_vocabulary()
+    assert "Jesse" in context and "Oiee" in context
+    print("OK: perfil aprende correções confirmadas localmente")
+
+
 def test_auto_gain_boosts_quiet_voice_without_changing_silence():
     quiet = np.full(1600, 0.02, dtype=np.float32)
     boosted = REAL_RECORDER.auto_gain(quiet)
@@ -371,6 +381,7 @@ if __name__ == "__main__":
     test_chord_keys_normalization()
     test_new_defaults_use_ctrl_win_and_paste()
     test_vocabulary_becomes_whisper_context()
+    test_user_profile_learns_and_reuses_confirmed_correction()
     test_auto_gain_boosts_quiet_voice_without_changing_silence()
     test_recorder_recent_returns_last_chunk()
     test_recorder_flattens_2d_frames()

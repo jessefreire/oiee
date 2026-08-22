@@ -23,7 +23,7 @@ class DictationEngine:
     def __init__(self, config: Config, overlay):
         self.cfg = config
         self.overlay = overlay
-        self.transcriber = Transcriber(config.model, config.language, config.vocabulary, config.beam_size)
+        self.transcriber = Transcriber(config.model, config.language, config.learned_vocabulary(), config.beam_size)
         self._recording = False
         self._stop = threading.Event()
         self._lock = threading.Lock()
@@ -38,8 +38,9 @@ class DictationEngine:
 
     def reload(self) -> None:
         """Recarrega configuração (modelo/idioma) após salvar nas configurações."""
-        if not self.transcriber.matches(self.cfg.model, self.cfg.language, self.cfg.vocabulary, self.cfg.beam_size):
-            self.transcriber = Transcriber(self.cfg.model, self.cfg.language, self.cfg.vocabulary, self.cfg.beam_size)
+        vocabulary = self.cfg.learned_vocabulary()
+        if not self.transcriber.matches(self.cfg.model, self.cfg.language, vocabulary, self.cfg.beam_size):
+            self.transcriber = Transcriber(self.cfg.model, self.cfg.language, vocabulary, self.cfg.beam_size)
             threading.Thread(target=self.transcriber.load, daemon=True).start()
 
     # ------------------------------------------------------------------ hooks
@@ -129,11 +130,19 @@ class DictationEngine:
                 self.overlay.hide()
 
         if text:
-            clean, actions = parse_commands(text, self.cfg.language)
-            if clean:
-                typer.type_text(clean, self.cfg.output_mode)
-            if actions:
-                typer.apply_actions(actions)
+            # No app Qt, a entrega vai para a thread de interface. O fallback
+            # preserva o motor testável e o uso com overlays antigos.
+            if hasattr(self.overlay, "show_result"):
+                self.overlay.show_result(text)
+            else:
+                self._insert_text(text)
 
         with self._lock:
             self._recording = False
+
+    def _insert_text(self, text: str) -> None:
+        clean, actions = parse_commands(self.cfg.apply_corrections(text), self.cfg.language)
+        if clean:
+            typer.type_text(clean, self.cfg.output_mode)
+        if actions:
+            typer.apply_actions(actions)

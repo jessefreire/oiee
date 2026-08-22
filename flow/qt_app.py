@@ -16,8 +16,10 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout, QM
                                QVBoxLayout, QWidget, QPlainTextEdit, QMessageBox, QCheckBox)
 
 from .config import LANGUAGES, MODELS, OUTPUT_MODES, Config
+from .commands import parse_commands
 from .engine import DictationEngine
 from .errors import log_path
+from . import typer
 
 
 class UiBridge(QObject):
@@ -25,11 +27,13 @@ class UiBridge(QObject):
     transcribing = Signal()
     error = Signal(str)
     idle = Signal()
+    result = Signal(str)
 
     def show_recording(self, recorder): self.recording.emit(recorder)
     def show_transcribing(self): self.transcribing.emit()
     def show_error(self, message): self.error.emit(message)
     def hide(self): self.idle.emit()
+    def show_result(self, text): self.result.emit(text)
 
 
 def tray_icon() -> QIcon:
@@ -214,6 +218,63 @@ class Overlay(QWidget):
         self.cfg.floating_x, self.cfg.floating_y = self.x(), self.y(); self.cfg.save()
 
 
+class ReviewDialog(QDialog):
+    """Revisão opcional: só ensina quando a pessoa confirma a mudança."""
+    def __init__(self, text: str):
+        super().__init__()
+        self.setWindowTitle("Oiee — Revisar transcrição")
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+        self.setWindowModality(Qt.ApplicationModal)
+        self.action = "discard"
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Ajuste o texto se precisar. “Aprender” salva somente as trocas confirmadas neste computador."))
+        self.editor = QPlainTextEdit(text)
+        self.editor.setMinimumSize(460, 150)
+        layout.addWidget(self.editor)
+        buttons = QHBoxLayout()
+        discard = QPushButton("Descartar")
+        insert = QPushButton("Inserir")
+        learn = QPushButton("Inserir e aprender")
+        discard.clicked.connect(self.reject)
+        insert.clicked.connect(lambda: self._finish("insert"))
+        learn.clicked.connect(lambda: self._finish("learn"))
+        buttons.addWidget(discard); buttons.addWidget(insert); buttons.addWidget(learn)
+        layout.addLayout(buttons)
+
+    def _finish(self, action: str):
+        self.action = action
+        self.accept()
+
+
+class CorrectionsDialog(QDialog):
+    def __init__(self, cfg: Config):
+        super().__init__()
+        self.cfg = cfg
+        self.setWindowTitle("Oiee — Correções aprendidas")
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Uma correção por linha no formato: reconhecido => forma correta"))
+        lines = [f"{wrong} => {right}" for wrong, right in (cfg.corrections or {}).items()]
+        self.editor = QPlainTextEdit("\n".join(lines))
+        self.editor.setMinimumSize(460, 220)
+        layout.addWidget(self.editor)
+        buttons = QHBoxLayout(); clear = QPushButton("Apagar tudo"); save = QPushButton("Salvar")
+        clear.clicked.connect(lambda: self.editor.setPlainText("")); save.clicked.connect(self.save)
+        buttons.addWidget(clear); buttons.addWidget(save); layout.addLayout(buttons)
+
+    def save(self):
+        corrections: dict[str, str] = {}
+        for line in self.editor.toPlainText().splitlines():
+            if "=>" not in line:
+                continue
+            wrong, right = (part.strip() for part in line.split("=>", 1))
+            if wrong and right and len(wrong) <= 80 and len(right) <= 80:
+                corrections[wrong] = right
+        self.cfg.corrections = dict(list(corrections.items())[-300:])
+        self.cfg.save()
+        self.accept()
+
+
 class Settings(QDialog):
     def __init__(self, cfg: Config, controller):
         super().__init__(); self.cfg, self.controller = cfg, controller; self.setWindowTitle("Oiee — Configurações")
@@ -228,8 +289,11 @@ class Settings(QDialog):
         for i,d in enumerate(sd.query_devices()):
             if d["max_input_channels"] > 0: self.device.addItem(d["name"], i)
         self.device.setCurrentIndex(max(0, self.device.findData(cfg.device))); form.addRow("Microfone", self.device)
-        self.vocabulary = QPlainTextEdit(cfg.vocabulary); self.vocabulary.setPlaceholderText("Ex.: nomes, siglas, marcas e clientes…"); self.vocabulary.setFixedHeight(70)
-        form.addRow("Vocabulário pessoal", self.vocabulary)
+        self.vocabulary = QPlainTextEdit(cfg.vocabulary); self.vocabulary.setPlaceholderText("Ex.: nomes, siglas, marcas, clientes e projetos…"); self.vocabulary.setFixedHeight(70)
+        form.addRow("Meu vocabulário", self.vocabulary)
+        self.review = QCheckBox("Revisar antes de inserir (permite ensinar correções)"); self.review.setChecked(cfg.review_before_insert); layout.addWidget(self.review)
+        learned = QPushButton(f"Gerenciar correções aprendidas ({len(cfg.corrections or {})})")
+        learned.clicked.connect(controller.manage_corrections); layout.addWidget(learned)
         self.auto_gain = QCheckBox("Ajustar automaticamente voz baixa"); self.auto_gain.setChecked(cfg.auto_gain); layout.addWidget(self.auto_gain)
         info = QLabel("Atalho: toque Ctrl+Win duas vezes (toggle) ou segure para falar"); layout.addWidget(info)
         test = QPushButton("Testar microfone"); test.clicked.connect(controller.test_microphone); layout.addWidget(test)
@@ -237,7 +301,7 @@ class Settings(QDialog):
         diag = QPushButton("Abrir diagnóstico"); diag.clicked.connect(controller.show_diagnostics); layout.addWidget(diag)
         save = QPushButton("Salvar"); save.clicked.connect(self.save); layout.addWidget(save)
     def save(self):
-        self.cfg.model, self.cfg.language = self.model.currentText(), self.language.currentText(); self.cfg.output_mode = self.output.currentData(); self.cfg.device = self.device.currentData(); self.cfg.vocabulary = self.vocabulary.toPlainText().strip(); self.cfg.beam_size = self.beam.currentData(); self.cfg.auto_gain = self.auto_gain.isChecked(); self.cfg.save(); self.controller.reload(); self.accept()
+        self.cfg.model, self.cfg.language = self.model.currentText(), self.language.currentText(); self.cfg.output_mode = self.output.currentData(); self.cfg.device = self.device.currentData(); self.cfg.vocabulary = self.vocabulary.toPlainText().strip(); self.cfg.beam_size = self.beam.currentData(); self.cfg.auto_gain = self.auto_gain.isChecked(); self.cfg.review_before_insert = self.review.isChecked(); self.cfg.save(); self.controller.reload(); self.accept()
 
 
 class FlowApplication(QObject):
@@ -246,7 +310,7 @@ class FlowApplication(QObject):
         # Não aceite a primeira interação antes do loop Qt e do hook global
         # estarem prontos. Isso eliminia o primeiro clique/atalho perdido.
         self.overlay.hide()
-        self.engine = DictationEngine(cfg, self.bridge); self.bridge.recording.connect(lambda r: self.overlay.set_state("recording", r)); self.bridge.transcribing.connect(lambda: self.overlay.set_state("transcribing")); self.bridge.error.connect(lambda e: self.overlay.set_state("error", message=e)); self.bridge.idle.connect(lambda: self.overlay.set_state("idle"))
+        self.engine = DictationEngine(cfg, self.bridge); self.bridge.recording.connect(lambda r: self.overlay.set_state("recording", r)); self.bridge.transcribing.connect(lambda: self.overlay.set_state("transcribing")); self.bridge.error.connect(lambda e: self.overlay.set_state("error", message=e)); self.bridge.idle.connect(lambda: self.overlay.set_state("idle")); self.bridge.result.connect(self.handle_transcription)
         self.overlay.settings_requested.connect(self.open_settings)
         self.hotkey = CtrlWinHotkey(self.overlay); self.hotkey.start_requested.connect(self.engine.start_recording); self.hotkey.stop_requested.connect(self.engine.stop_recording); self.overlay.toggled.connect(self.engine.toggle)
         self.tray = QSystemTrayIcon(tray_icon(), self.overlay); menu = QMenu(); menu.addAction(QAction("Configurações", self.tray, triggered=self.open_settings)); menu.addAction(QAction("Sair", self.tray, triggered=app.quit)); self.tray.setContextMenu(menu); self.tray.setToolTip("Oiee — Ctrl+Win: duplo toque ou segurar"); self.tray.show()
@@ -263,6 +327,29 @@ class FlowApplication(QObject):
         QTimer.singleShot(0, lambda: (dialog.raise_(), dialog.activateWindow()))
         dialog.exec()
     def reload(self): self.engine.reload()
+    def manage_corrections(self):
+        dialog = CorrectionsDialog(self.cfg)
+        if dialog.exec():
+            self.reload()
+    def handle_transcription(self, raw_text: str):
+        """Roda na UI Qt: o worker nunca toca em widgets diretamente."""
+        text = self.cfg.apply_corrections(raw_text)
+        clean, actions = parse_commands(text, self.cfg.language)
+        if self.cfg.review_before_insert and clean:
+            dialog = ReviewDialog(clean)
+            if not dialog.exec() or dialog.action == "discard":
+                return
+            revised = dialog.editor.toPlainText().strip()
+            if dialog.action == "learn" and revised:
+                learned = self.cfg.learn_corrections(clean, revised)
+                if learned:
+                    self.cfg.save()
+                    self.reload()
+            clean = revised
+        if clean:
+            typer.type_text(clean, self.cfg.output_mode)
+        if actions:
+            typer.apply_actions(actions)
     def reset_overlay(self): self.overlay.move(900, 700); self.cfg.floating_x, self.cfg.floating_y = 900, 700; self.cfg.save()
     def test_microphone(self):
         try:

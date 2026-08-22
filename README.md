@@ -78,6 +78,25 @@ python -m venv .venv
 
 ---
 
+## 🧠 Perfil linguístico local
+
+O Oiee pode reduzir erros recorrentes sem enviar gravações para a internet e
+sem retreinar o modelo de IA. Em **Configurações** você encontra:
+
+- **Meu vocabulário**: nomes, clientes, siglas, marcas e projetos que devem
+  receber prioridade na transcrição;
+- **Revisar antes de inserir**: exibe o texto antes de colar. Ao corrigir e
+  escolher **Inserir e aprender**, o Oiee memoriza apenas as trocas
+  confirmadas (por exemplo, `jece` → `Jesse`);
+- **Gerenciar correções aprendidas**: permite editar ou apagar cada correção,
+  ou limpar tudo quando quiser.
+
+O perfil fica no `config.json` do próprio computador. Áudio não é salvo e
+nada é enviado à nuvem. A revisão vem desativada por padrão para manter o
+ditado instantâneo.
+
+---
+
 ## Comandos por voz 🗣️
 
 Diga um destes comandos durante o ditado (português por padrão; em `en` vale a
