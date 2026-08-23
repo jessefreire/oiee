@@ -149,7 +149,9 @@ class Overlay(QWidget):
         self.drag_offset = None
         self.dragged = False
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedSize(76, 48)
+        # Estado ocioso é deliberadamente um círculo pequeno: o botão fica
+        # presente, mas não ocupa a tela enquanto você não está ditando.
+        self.setFixedSize(48, 48)
         self.move(cfg.floating_x or 900, cfg.floating_y or 700)
         self.timer = QTimer(self); self.timer.timeout.connect(self.update); self.timer.start(60)
         if cfg.floating: self.show()
@@ -160,17 +162,22 @@ class Overlay(QWidget):
         if state == "recording": self.started = time.monotonic(); self.setFixedSize(270, 54)
         elif state == "transcribing": self.setFixedSize(180, 42)
         elif state == "error": self.setFixedSize(260, 52)
-        else: self.setFixedSize(76, 48)
+        else: self.setFixedSize(48, 48)
         self.show(); self.raise_(); self.update()
 
     def paintEvent(self, _):
         p = QPainter(self); p.setRenderHint(QPainter.Antialiasing)
         rect = self.rect().adjusted(1, 1, -1, -1)
         color = QColor("#172033") if self.state == "idle" else QColor("#202a3d")
-        p.setBrush(color); p.setPen(QColor("#3b82f6")); p.drawRoundedRect(rect, 22, 22)
+        p.setBrush(color); p.setPen(QColor("#3b82f6"))
+        if self.state == "idle":
+            p.drawEllipse(rect)
+        else:
+            p.drawRoundedRect(rect, 22, 22)
         p.setPen(QColor("#e8f0ff"))
         if self.state == "idle":
-            p.setFont(self.font()); p.drawText(rect, Qt.AlignCenter, "🎙")
+            font = self.font(); font.setPointSize(15); p.setFont(font)
+            p.drawText(rect, Qt.AlignCenter, "🎙")
         elif self.state == "recording":
             elapsed = int(time.monotonic() - self.started); p.drawText(14, 33, f"● Gravando  {elapsed:02d}s")
             audio = self.recorder.recent(.35) if self.recorder is not None else np.zeros(0, dtype=np.float32)
