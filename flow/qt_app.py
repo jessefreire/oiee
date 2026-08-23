@@ -176,7 +176,9 @@ class Overlay(QWidget):
             p.drawRoundedRect(rect, 22, 22)
         p.setPen(QColor("#e8f0ff"))
         if self.state == "idle":
-            font = self.font(); font.setPointSize(15); p.setFont(font)
+            # O contorno é compacto; o glifo mantém a escala discreta do
+            # botão antigo para não parecer um ícone "gigante" na tela.
+            font = self.font(); font.setPointSize(10); p.setFont(font)
             p.drawText(rect, Qt.AlignCenter, "🎙")
         elif self.state == "recording":
             elapsed = int(time.monotonic() - self.started); p.drawText(14, 33, f"● Gravando  {elapsed:02d}s")
