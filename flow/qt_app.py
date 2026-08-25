@@ -68,12 +68,12 @@ class CtrlWinHotkey(QObject):
         self._hold_timer = None
 
     def register(self) -> bool:
+        if self.registered:
+            return True
         try:
-            # O pacote keyboard inicia o hook em threads preguiçosamente. Ao
-            # aquecê-lo antes de registrar o callback, a primeira combinação
-            # logo após abrir o Oiee não se perde.
+            # Inicia o listener antes do callback. Esta função é chamada pelo
+            # loop Qt já ativo (nunca durante a construção da janela).
             keyboard._listener.start_if_necessary()  # type: ignore[attr-defined]
-            time.sleep(0.15)
             self._hook = keyboard.hook(self._on_event, suppress=False)
             self.registered = True
         except Exception:
@@ -84,6 +84,11 @@ class CtrlWinHotkey(QObject):
         if self.registered:
             keyboard.unhook(self._hook)
             self.registered = False
+
+    def rearm(self) -> bool:
+        """Recria o callback após o listener nativo estar totalmente pronto."""
+        self.close()
+        return self.register()
 
     def _on_event(self, event) -> None:
         name = "windows" if event.name in {"windows", "left windows", "right windows", "win"} else event.name
@@ -323,10 +328,22 @@ class FlowApplication(QObject):
         self.overlay.settings_requested.connect(self.open_settings)
         self.hotkey = CtrlWinHotkey(self.overlay); self.hotkey.start_requested.connect(self.engine.start_recording); self.hotkey.stop_requested.connect(self.engine.stop_recording); self.overlay.toggled.connect(self.engine.toggle)
         self.tray = QSystemTrayIcon(tray_icon(), self.overlay); menu = QMenu(); menu.addAction(QAction("Configurações", self.tray, triggered=self.open_settings)); menu.addAction(QAction("Sair", self.tray, triggered=app.quit)); self.tray.setContextMenu(menu); self.tray.setToolTip("Oiee — Ctrl+Win: duplo toque ou segurar"); self.tray.show()
-        if not self.hotkey.register(): self.overlay.set_state("error", message="Não foi possível registrar Ctrl + Win")
         import threading
         threading.Thread(target=self.engine.transcriber.load, daemon=True).start()
-        QTimer.singleShot(350, self._show_ready)
+        # O listener baixo nível de ``keyboard`` só fica completamente pronto
+        # depois que o loop de mensagens do Qt começa. Armamos agora e uma vez
+        # mais antes de exibir o botão; assim a primeira interação já usa o
+        # callback definitivo, sem exigir um clique de "despertar".
+        QTimer.singleShot(0, self._activate_hotkey)
+        QTimer.singleShot(500, self._stabilize_hotkey)
+        QTimer.singleShot(650, self._show_ready)
+
+    def _activate_hotkey(self):
+        self.hotkey.register()
+
+    def _stabilize_hotkey(self):
+        if not self.hotkey.rearm():
+            self.overlay.set_state("error", message="Não foi possível registrar Ctrl + Win")
 
     def _show_ready(self):
         if self.cfg.floating:

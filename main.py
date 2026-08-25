@@ -39,10 +39,16 @@ def _acquire_single_instance() -> bool:
     if sys.platform == "win32":
         import ctypes
 
-        kernel32 = ctypes.windll.kernel32
+        # ``ctypes.windll`` não preserva GetLastError de forma confiável entre
+        # chamadas. Sem ``use_last_error=True``, duas instâncias podiam passar
+        # por este teste e disputar o hook global do teclado.
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, ctypes.c_bool, ctypes.c_wchar_p)
+        kernel32.CreateMutexW.restype = ctypes.c_void_p
+        ctypes.set_last_error(0)
         _SINGLE_INSTANCE_MUTEX = kernel32.CreateMutexW(None, False, "Oiee_SingleInstance")
         # ERROR_ALREADY_EXISTS = 183: outra instância já criou o mutex
-        return kernel32.GetLastError() != 183
+        return bool(_SINGLE_INSTANCE_MUTEX) and ctypes.get_last_error() != 183
     # fallback não-Windows: lock com PID
     if os.path.exists(LOCK_PATH):
         try:
