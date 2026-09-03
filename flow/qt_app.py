@@ -8,7 +8,6 @@ import time
 
 import numpy as np
 import sounddevice as sd
-import keyboard
 from PySide6.QtCore import QObject, QTimer, Qt, Signal, QRectF
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout, QMenu,
@@ -52,7 +51,12 @@ def tray_icon() -> QIcon:
 
 
 class CtrlWinHotkey(QObject):
-    """Toque duplo alterna; segurar Ctrl+Win funciona como push-to-talk."""
+    """Atalho global Ctrl+Win sem depender do hook da biblioteca keyboard.
+
+    ``GetAsyncKeyState`` consulta o estado físico global das teclas, inclusive
+    quando o Oiee não tem foco. Isso evita o comportamento do listener em
+    thread que só passava a receber o primeiro atalho depois de um clique.
+    """
     start_requested = Signal()
     stop_requested = Signal()
 
@@ -60,21 +64,24 @@ class CtrlWinHotkey(QObject):
         super().__init__()
         self.window = window
         self.registered = False
-        self._pressed = set()
         self._chord_down = False
         self._active = False
         self._holding = False
         self._last_tap = 0.0
         self._hold_timer = None
+        self._poll_timer = QTimer(self)
+        self._poll_timer.setInterval(8)
+        self._poll_timer.timeout.connect(self._poll)
 
     def register(self) -> bool:
         if self.registered:
             return True
         try:
-            # Inicia o listener antes do callback. Esta função é chamada pelo
-            # loop Qt já ativo (nunca durante a construção da janela).
-            keyboard._listener.start_if_necessary()  # type: ignore[attr-defined]
-            self._hook = keyboard.hook(self._on_event, suppress=False)
+            # VK_CONTROL=0x11, VK_L/RWIN=0x5B/0x5C. Não registramos uma
+            # hotkey no Windows porque o modo "segurar" também precisa saber
+            # exatamente quando a combinação foi solta.
+            ctypes.windll.user32.GetAsyncKeyState(0x11)
+            self._poll_timer.start()
             self.registered = True
         except Exception:
             self.registered = False
@@ -82,31 +89,36 @@ class CtrlWinHotkey(QObject):
 
     def close(self) -> None:
         if self.registered:
-            keyboard.unhook(self._hook)
+            self._poll_timer.stop()
             self.registered = False
+        self._chord_down = False
+        self._holding = False
+        if self._hold_timer is not None:
+            self._hold_timer.cancel()
+            self._hold_timer = None
 
     def rearm(self) -> bool:
-        """Recria o callback após o listener nativo estar totalmente pronto."""
+        """Reinicia a leitura nativa depois da criação da janela Qt."""
         self.close()
         return self.register()
 
-    def _on_event(self, event) -> None:
-        name = "windows" if event.name in {"windows", "left windows", "right windows", "win"} else event.name
-        if name not in {"ctrl", "windows", "left ctrl", "right ctrl"}:
-            return
-        if event.event_type == "down":
-            if name in {"left ctrl", "right ctrl"}: name = "ctrl"
-            self._pressed.add(name)
-            if self._chord_down or not {"ctrl", "windows"}.issubset(self._pressed):
-                return
+    @staticmethod
+    def _key_down(vk: int) -> bool:
+        return bool(ctypes.windll.user32.GetAsyncKeyState(vk) & 0x8000)
+
+    def _poll(self) -> None:
+        ctrl_down = self._key_down(0x11)  # VK_CONTROL
+        win_down = self._key_down(0x5B) or self._key_down(0x5C)  # VK_L/RWIN
+        self._process_chord_state(ctrl_down and win_down)
+
+    def _process_chord_state(self, chord_down: bool) -> None:
+        """Parte determinística do atalho, isolada para testes sem Windows."""
+        if chord_down and not self._chord_down:
             self._chord_down = True
             self._on_chord_down()
-        else:
-            if name in {"left ctrl", "right ctrl"}: name = "ctrl"
-            self._pressed.discard(name)
-            if self._chord_down and name in {"ctrl", "windows"}:
-                self._chord_down = False
-                self._on_chord_up()
+        elif not chord_down and self._chord_down:
+            self._chord_down = False
+            self._on_chord_up()
 
     def _on_chord_down(self) -> None:
         if self._active:

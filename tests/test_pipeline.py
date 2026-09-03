@@ -20,6 +20,8 @@ from flow.config import Config  # noqa: E402
 from flow.engine import DictationEngine  # noqa: E402
 from flow.overlay import Overlay  # noqa: E402
 from flow.transcriber import Transcriber  # noqa: E402
+from flow.qt_app import CtrlWinHotkey  # noqa: E402
+from PySide6.QtCore import QCoreApplication  # noqa: E402
 
 WAV = os.path.join(os.environ.get("TEMP", "/tmp"), "flow_test.wav")
 REAL_RECORDER = engine_mod.Recorder
@@ -277,6 +279,23 @@ def test_chord_keys_normalization():
     print("OK: normalização do chord")
 
 
+def test_ctrl_win_first_double_tap_does_not_need_keyboard_hook():
+    """O novo atalho consulta as teclas nativamente, sem evento de mouse."""
+    _app = QCoreApplication.instance() or QCoreApplication([])
+    hotkey = CtrlWinHotkey(None)
+    starts = []
+    hotkey.start_requested.connect(lambda: starts.append(True))
+    # Primeiro toque curto: aguarda uma possível segunda batida.
+    hotkey._process_chord_state(True)
+    hotkey._process_chord_state(False)
+    # Segundo toque curto: inicia o modo travado imediatamente.
+    hotkey._process_chord_state(True)
+    hotkey._process_chord_state(False)
+    assert starts == [True], starts
+    hotkey.close()
+    print("OK: primeiro toque duplo Ctrl+Win inicia sem clique")
+
+
 def test_new_defaults_use_ctrl_win_and_paste():
     cfg = Config()
     assert cfg.hotkey == "ctrl+win" and cfg.hotkey_mode == "hold"
@@ -379,6 +398,7 @@ if __name__ == "__main__":
     test_hold_chord_needs_all_keys()
     test_toggle_mode()
     test_chord_keys_normalization()
+    test_ctrl_win_first_double_tap_does_not_need_keyboard_hook()
     test_new_defaults_use_ctrl_win_and_paste()
     test_vocabulary_becomes_whisper_context()
     test_user_profile_learns_and_reuses_confirmed_correction()
