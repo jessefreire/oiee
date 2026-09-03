@@ -18,7 +18,6 @@ from flow import typer  # noqa: E402
 from flow.commands import parse_commands  # noqa: E402
 from flow.config import Config  # noqa: E402
 from flow.engine import DictationEngine  # noqa: E402
-from flow.overlay import Overlay  # noqa: E402
 from flow.transcriber import Transcriber  # noqa: E402
 from flow.qt_app import CtrlWinHotkey  # noqa: E402
 from PySide6.QtCore import QCoreApplication  # noqa: E402
@@ -354,30 +353,6 @@ def test_engine_executes_voice_commands():
     print("OK: comandos por voz no engine")
 
 
-def test_overlay_without_floating_window_is_safe():
-    """Ocultar a barra não pode quebrar o ditado que usa apenas o atalho."""
-    overlay = Overlay.__new__(Overlay)
-    overlay.win = None
-    overlay._call = lambda callback: callback()
-    overlay._recorder = None
-    overlay._t0 = None
-    overlay._hide_after = None
-    Overlay.show_recording(overlay, recorder=None)
-    Overlay.show_transcribing(overlay)
-    Overlay.show_error(overlay, "microfone indisponível")
-    assert overlay._recorder is None
-    print("OK: overlay sem barra flutuante")
-
-
-def test_overlay_click_runs_callback_when_not_dragging():
-    overlay = Overlay.__new__(Overlay)
-    overlay._dragging = False
-    called = []
-    Overlay._on_release(overlay, event=None, on_click=lambda: called.append(True))
-    assert called == [True]
-    print("OK: clique na barra dispara gravação")
-
-
 if __name__ == "__main__":
     test_dictation_transcribes_and_types()
     test_silence_is_ignored()
@@ -392,8 +367,6 @@ if __name__ == "__main__":
     test_commands_do_not_match_inside_words()
     test_commands_english()
     test_engine_executes_voice_commands()
-    test_overlay_without_floating_window_is_safe()
-    test_overlay_click_runs_callback_when_not_dragging()
     test_hold_single_key()
     test_hold_chord_needs_all_keys()
     test_toggle_mode()

@@ -155,6 +155,10 @@ ajustes de UI, performance da transcrição, documentação.
 ## 🔧 Para desenvolvedores
 
 ```bash
+# ambiente de build isolado e estável (criado uma única vez)
+py -3.11 -m venv .venv-build
+.venv-build\Scripts\pip install -r requirements-build.txt
+
 # gera o .exe portátil (dist/Oiee.exe)
 powershell -ExecutionPolicy Bypass -File build_exe.ps1
 
