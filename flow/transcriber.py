@@ -1,13 +1,15 @@
 """Transcrição local com faster-whisper.
 
-O modelo é carregado de forma preguiçosa (e em background na inicialização).
+O modelo é carregado de forma preguiçosa após a primeira gravação.
 Tudo roda em CPU com quantização int8 — no Windows, sem GPU é o caminho mais
 rápido e leve.
 """
 import threading
 import time
+from typing import TYPE_CHECKING, Any
 
-from faster_whisper import WhisperModel
+if TYPE_CHECKING:
+    from faster_whisper import WhisperModel
 
 STATUS_IDLE = "modelo não carregado"
 STATUS_LOADING = "carregando modelo…"
@@ -21,13 +23,16 @@ class Transcriber:
         self.vocabulary = vocabulary.strip()
         self.beam_size = max(1, min(5, int(beam_size)))
         self.status = STATUS_IDLE
-        self._model: WhisperModel | None = None
+        self._model: Any | None = None
         self._lock = threading.Lock()
 
-    def load(self) -> WhisperModel:
+    def load(self) -> "WhisperModel":
         with self._lock:
             if self._model is None:
                 self.status = STATUS_LOADING
+                # Import pesado adiado: a interface e o atalho global ficam
+                # prontos antes de carregar CTranslate2/Faster Whisper.
+                from faster_whisper import WhisperModel
                 # Na primeira execução baixa o modelo do Hugging Face e cacheia.
                 # Falhas transitórias (download/materialização do cache) são
                 # comuns: tenta até 3 vezes antes de desistir.

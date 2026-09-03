@@ -1,4 +1,4 @@
-# Gera dist/Oiee.exe (portátil, janela única, sem console)
+# Gera dist/Oiee/Oiee.exe (inicialização rápida, sem console)
 # Uso: powershell -ExecutionPolicy Bypass -File build_exe.ps1
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
@@ -16,7 +16,7 @@ $buildPathEntries = $env:Path -split ';' | Where-Object {
 }
 $env:Path = $buildPathEntries -join ';'
 
-& $py -m PyInstaller --noconfirm --clean --onefile --windowed --name Oiee `
+& $py -m PyInstaller --noconfirm --clean --onedir --windowed --name Oiee `
     --icon (Join-Path $root 'assets\icon.ico') `
     --collect-all ctranslate2 `
     --collect-all tokenizers `
@@ -25,4 +25,4 @@ $env:Path = $buildPathEntries -join ';'
     --collect-data faster_whisper `
     (Join-Path $root 'main.py')
 
-Write-Host "OK: dist\Oiee.exe"
+Write-Host "OK: dist\Oiee\Oiee.exe"

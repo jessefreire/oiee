@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
-import threading
 import time
 
 import numpy as np
@@ -68,7 +67,10 @@ class CtrlWinHotkey(QObject):
         self._active = False
         self._holding = False
         self._last_tap = 0.0
-        self._hold_timer = None
+        self._hold_timer = QTimer(self)
+        self._hold_timer.setSingleShot(True)
+        self._hold_timer.setInterval(250)
+        self._hold_timer.timeout.connect(self._start_hold_if_still_down)
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(8)
         self._poll_timer.timeout.connect(self._poll)
@@ -93,9 +95,7 @@ class CtrlWinHotkey(QObject):
             self.registered = False
         self._chord_down = False
         self._holding = False
-        if self._hold_timer is not None:
-            self._hold_timer.cancel()
-            self._hold_timer = None
+        self._hold_timer.stop()
 
     def rearm(self) -> bool:
         """Reinicia a leitura nativa depois da criação da janela Qt."""
@@ -127,8 +127,6 @@ class CtrlWinHotkey(QObject):
             return
         # Um toque curto pode fazer parte do gesto de dois toques. Só inicia
         # o push-to-talk se o acorde permanecer pressionado por 250 ms.
-        self._hold_timer = threading.Timer(0.25, self._start_hold_if_still_down)
-        self._hold_timer.daemon = True
         self._hold_timer.start()
 
     def _start_hold_if_still_down(self) -> None:
@@ -137,9 +135,7 @@ class CtrlWinHotkey(QObject):
             self.start_requested.emit()
 
     def _on_chord_up(self) -> None:
-        if self._hold_timer is not None:
-            self._hold_timer.cancel()
-            self._hold_timer = None
+        self._hold_timer.stop()
         if self._holding:
             self._holding = False
             self.stop_requested.emit()
@@ -340,25 +336,15 @@ class FlowApplication(QObject):
         self.overlay.settings_requested.connect(self.open_settings)
         self.hotkey = CtrlWinHotkey(self.overlay); self.hotkey.start_requested.connect(self.engine.start_recording); self.hotkey.stop_requested.connect(self.engine.stop_recording); self.overlay.toggled.connect(self.engine.toggle)
         self.tray = QSystemTrayIcon(tray_icon(), self.overlay); menu = QMenu(); menu.addAction(QAction("Configurações", self.tray, triggered=self.open_settings)); menu.addAction(QAction("Sair", self.tray, triggered=app.quit)); self.tray.setContextMenu(menu); self.tray.setToolTip("Oiee — Ctrl+Win: duplo toque ou segurar"); self.tray.show()
-        import threading
-        threading.Thread(target=self.engine.transcriber.load, daemon=True).start()
-        # O listener baixo nível de ``keyboard`` só fica completamente pronto
-        # depois que o loop de mensagens do Qt começa. Armamos agora e uma vez
-        # mais antes de exibir o botão; assim a primeira interação já usa o
-        # callback definitivo, sem exigir um clique de "despertar".
-        QTimer.singleShot(0, self._activate_hotkey)
-        QTimer.singleShot(500, self._stabilize_hotkey)
-        QTimer.singleShot(650, self._show_ready)
+        # O círculo só aparece depois que a leitura nativa já está ativa. Não
+        # reiniciamos o monitor depois disso: um reinício atrasado podia apagar
+        # justamente a primeira combinação pressionada pelo usuário.
+        QTimer.singleShot(0, self._become_ready)
 
-    def _activate_hotkey(self):
-        self.hotkey.register()
-
-    def _stabilize_hotkey(self):
-        if not self.hotkey.rearm():
+    def _become_ready(self):
+        if not self.hotkey.register():
             self.overlay.set_state("error", message="Não foi possível registrar Ctrl + Win")
-
-    def _show_ready(self):
-        if self.cfg.floating:
+        elif self.cfg.floating:
             self.overlay.set_state("idle")
     def open_settings(self):
         dialog = Settings(self.cfg, self)

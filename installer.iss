@@ -1,6 +1,6 @@
 ; Instalador do Oiee — compile com Inno Setup 6:
 ;   ISCC.exe installer.iss
-; Requisito: rodar build_exe.ps1 antes (gera dist\Oiee.exe).
+; Requisito: rodar build_exe.ps1 antes (gera dist\Oiee\Oiee.exe).
 
 #define MyAppName "Oiee"
 #define MyAppVersion "0.1.0"
@@ -11,7 +11,7 @@ AppId={{8C4F9D2E-5B7A-4C3D-9E1F-2A6B8C0D4E5F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher=Oiee
-AppPublisherURL=https://github.com/SEU_USUARIO/oiee
+AppPublisherURL=https://github.com/jessefreire/oiee
 ; Instalação por usuário: sem necessidade de administrador (sem UAC)
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\Oiee
@@ -33,7 +33,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\Oiee\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

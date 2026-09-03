@@ -13,8 +13,9 @@ trabalhando.
 página de [Releases](https://github.com/SEU_USUARIO/flow-local/releases) e
 instale. Cria atalho no menu Iniciar, com desinstalador.
 
-**Opção 2 — Portátil:** baixe `Oiee.exe` e rode direto (não precisa
-instalar).
+**Opção 2 — Portátil:** baixe e extraia a pasta `Oiee` e execute
+`Oiee\Oiee.exe` (não precisa instalar). Manter os arquivos juntos evita a
+espera de extração a cada inicialização.
 
 **Opção 3 — Do código:**
 ```bash
@@ -159,7 +160,7 @@ ajustes de UI, performance da transcrição, documentação.
 py -3.11 -m venv .venv-build
 .venv-build\Scripts\pip install -r requirements-build.txt
 
-# gera o .exe portátil (dist/Oiee.exe)
+# gera a pasta portátil de inicialização rápida (dist/Oiee/Oiee.exe)
 powershell -ExecutionPolicy Bypass -File build_exe.ps1
 
 # gera o instalador (dist/Oiee-Setup-<versão>.exe) — requer Inno Setup 6
@@ -178,8 +179,8 @@ Antes de publicar no GitHub: troque `SEU_USUARIO` pela sua conta no
 
 ## Problemas comuns
 
-- **A primeira fala demora**: o modelo está sendo baixado/carregado. O app já
-  pré-carrega em background ao iniciar.
+- **A primeira transcrição demora**: o modelo é baixado/carregado somente após
+  a primeira gravação, para que a interface e o atalho iniciem imediatamente.
 - **Não digita em apps como administrador**: o hook global do Windows não enxerga
   teclas em janelas elevadas. Rode o Oiee como administrador nesse caso.
 - **Texto sai sem acentos ou o app "engole" caracteres**: troque para o modo
