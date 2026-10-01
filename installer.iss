@@ -31,6 +31,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "autostart"; Description: "Iniciar com o Windows (recomendado)"; GroupDescription: "Inicialização"
 
 [Files]
 Source: "dist\Oiee\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -39,6 +40,11 @@ Source: "dist\Oiee\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cre
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Registry]
+; Iniciar com o Windows por usuário (sem UAC). O app também pode ligar/desligar
+; isso em Configurações — ambos escrevem o mesmo valor.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: """{app}\{#MyAppExeName}"""; Tasks: autostart; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent

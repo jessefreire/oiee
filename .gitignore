@@ -6,9 +6,9 @@ config.json
 build/
 dist/
 *.spec
+!Oiee.spec
 flow-local-error.log
 oiee-error.log
-FlowLocal/
 Oiee/
 .freebuff/
 debug-argv.txt

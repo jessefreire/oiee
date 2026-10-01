@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Versão do app
-      description: Qual versão você está usando? (ex.: FlowLocal-Setup-0.1.0.exe ou "rodando do código")
+      description: Qual versão você está usando? (ex.: Oiee-Setup-0.1.0.exe ou "rodando do código")
       placeholder: "0.1.0"
     validations:
       required: true
@@ -52,11 +52,11 @@ body:
     id: log
     attributes:
       label: Log de erro
-      description: Se o app fechou sozinho, cole aqui o conteúdo do arquivo flow-local-error.log (fica ao lado do executável).
+      description: Se o app fechou sozinho, cole aqui o conteúdo do arquivo oiee-error.log (fica ao lado do executável).
       render: text
   - type: textarea
     id: config
     attributes:
       label: Configurações usadas
       description: Atalho, modo (segurar/alternar), modelo e idioma escolhidos. **Remova sua chave Pix antes de colar**, se ela estiver em config.json!
-      placeholder: "Atalho: right alt · Modo: segurar · Modelo: base · Idioma: pt"
+      placeholder: "Atalho: right alt · Modo: segurar · Modelo: small · Idioma: pt"

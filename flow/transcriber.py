@@ -17,7 +17,7 @@ STATUS_READY = "modelo pronto"
 
 
 class Transcriber:
-    def __init__(self, model_name: str = "base", language: str = "pt", vocabulary: str = "", beam_size: int = 3):
+    def __init__(self, model_name: str = "small", language: str = "pt", vocabulary: str = "", beam_size: int = 3):
         self.model_name = model_name
         self.language = language
         self.vocabulary = vocabulary.strip()
@@ -51,7 +51,14 @@ class Transcriber:
         return self._model
 
     def transcribe(self, audio) -> str:
-        """Transcreve um array float32 mono a 16 kHz e devolve o texto com pontuação."""
+        """Transcreve um array float32 mono a 16 kHz e devolve o texto com pontuação.
+
+        O vocabulário do usuário entra como ``hotwords`` (prioridade de
+        decoding). Nada de ``initial_prompt``: no faster-whisper o prompt é
+        tratado como prefixo "já falado" e, quando presente, anula os
+        ``hotwords`` — foi por isso que os termos do vocabulário chegavam
+        errados. Tudo roda local; nada sai da máquina.
+        """
         model = self.load()
         lang = None if self.language == "auto" else self.language
         segments, _ = model.transcribe(
@@ -60,17 +67,10 @@ class Transcriber:
             beam_size=self.beam_size,
             vad_filter=True,
             without_timestamps=True,
-            initial_prompt=self._initial_prompt(),
             hotwords=self.vocabulary or None,
             condition_on_previous_text=False,
         )
         return " ".join(segment.text.strip() for segment in segments).strip()
-
-    def _initial_prompt(self) -> str | None:
-        if not self.vocabulary:
-            return None
-        language = "português brasileiro" if self.language in {"pt", "auto"} else self.language
-        return f"Transcrição em {language}. Vocabulário preferido: {self.vocabulary}"
 
     def matches(self, model_name: str, language: str, vocabulary: str = "", beam_size: int = 3) -> bool:
         return (self.model_name == model_name and self.language == language

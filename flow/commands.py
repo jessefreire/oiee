@@ -82,7 +82,59 @@ _COMMANDS_EN = [
     ("end of line", "action:end"),
 ]
 
-COMMANDS = {"pt": _COMMANDS_PT, "en": _COMMANDS_EN}
+_COMMANDS_ES = [
+    ("punto de interrogación", "?"),
+    ("signo de interrogación", "?"),
+    ("punto de exclamación", "!"),
+    ("signo de exclamación", "!"),
+    ("punto y coma", ";"),
+    ("punto final", "."),
+    ("punto", "."),
+    ("dos puntos", ":"),
+    ("coma", ","),
+    ("abrir comillas", '"'),
+    ("cerrar comillas", '"'),
+    ("barra", "/"),
+    ("arroba", "@"),
+    ("nueva línea", "\n"),
+    ("nuevo párrafo", "\n\n"),
+    ("borrar la última palabra", "action:delete_last_word"),
+    ("borrar última palabra", "action:delete_last_word"),
+    ("cursor arriba", "action:cursor_up"),
+    ("cursor abajo", "action:cursor_down"),
+    ("cursor izquierda", "action:cursor_left"),
+    ("cursor derecha", "action:cursor_right"),
+    ("inicio de la línea", "action:home"),
+    ("final de la línea", "action:end"),
+]
+
+_COMMANDS_FR = [
+    ("point d'interrogation", "?"),
+    ("point interrogatif", "?"),
+    ("point d'exclamation", "!"),
+    ("point virgule", ";"),
+    ("point final", "."),
+    ("point", "."),
+    ("deux points", ":"),
+    ("virgule", ","),
+    ("ouvrir les guillemets", '"'),
+    ("fermer les guillemets", '"'),
+    ("barre oblique", "/"),
+    ("arobase", "@"),
+    ("nouvelle ligne", "\n"),
+    ("nouveau paragraphe", "\n\n"),
+    ("effacer le dernier mot", "action:delete_last_word"),
+    ("curseur vers le haut", "action:cursor_up"),
+    ("curseur vers le bas", "action:cursor_down"),
+    ("curseur vers la gauche", "action:cursor_left"),
+    ("curseur vers la droite", "action:cursor_right"),
+    ("début de la ligne", "action:home"),
+    ("fin de la ligne", "action:end"),
+]
+
+# Idiomas sem tabela própria caem na PT (comandos são palavras exatas:
+# raramente casam em outro idioma, e "arroba"/"barra" funcionam nos dois).
+COMMANDS = {"pt": _COMMANDS_PT, "en": _COMMANDS_EN, "es": _COMMANDS_ES, "fr": _COMMANDS_FR}
 
 
 def _norm(word: str) -> str:

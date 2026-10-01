@@ -21,23 +21,67 @@ def _base_dir() -> str:
 CONFIG_PATH = os.path.join(_base_dir(), "config.json")
 
 MODELS = ["tiny", "base", "small", "medium", "large-v3"]
-LANGUAGES = ["auto", "pt", "en", "es", "fr", "de", "it", "ja", "zh", "ru"]
+# Todos os idiomas do Whisper + "auto" (detecção automática por ditado).
+LANGUAGES = [
+    "auto",
+    "af", "am", "ar", "as", "az", "ba", "be", "bg", "bn", "bo", "br", "bs",
+    "ca", "cs", "cy", "da", "de", "el", "en", "es", "et", "eu", "fa", "fi",
+    "fo", "fr", "gl", "gu", "ha", "haw", "he", "hi", "hr", "ht", "hu", "hy",
+    "id", "is", "it", "ja", "jw", "ka", "kk", "km", "kn", "ko", "la", "lb",
+    "ln", "lo", "lt", "lv", "mg", "mi", "mk", "ml", "mn", "mr", "ms", "mt",
+    "my", "ne", "nl", "nn", "no", "oc", "pa", "pl", "ps", "pt", "ro", "ru",
+    "sa", "sd", "si", "sk", "sn", "so", "sq", "sr", "su", "sv", "sw", "ta",
+    "te", "tg", "th", "tk", "tl", "tr", "tt", "uk", "ur", "uz", "vi", "yi",
+    "yo", "yue", "zh",
+]
+# Rótulos em português para a UI de Configurações.
+LANGUAGE_NAMES = {
+    "auto": "detectar automaticamente",
+    "af": "africâner", "am": "amárico", "ar": "árabe", "as": "assamês",
+    "az": "azerbaijano", "ba": "bashkir", "be": "bielorrusso", "bg": "búlgaro",
+    "bn": "bengali", "bo": "tibetano", "br": "bretão", "bs": "bósnio",
+    "ca": "catalão", "cs": "checo", "cy": "galês", "da": "dinamarquês",
+    "de": "alemão", "el": "grego", "en": "inglês", "es": "espanhol",
+    "et": "estoniano", "eu": "basco", "fa": "persa", "fi": "finlandês",
+    "fo": "faroês", "fr": "francês", "gl": "galego", "gu": "guzerate",
+    "ha": "haussa", "haw": "havaiano", "he": "hebraico", "hi": "hindi",
+    "hr": "croata", "ht": "crioulo haitiano", "hu": "húngaro", "hy": "armênio",
+    "id": "indonésio", "is": "islandês", "it": "italiano", "ja": "japonês",
+    "jw": "javanês", "ka": "georgiano", "kk": "cazaque", "km": "khmer",
+    "kn": "canarês", "ko": "coreano", "la": "latim", "lb": "luxemburguês",
+    "ln": "lingala", "lo": "lao", "lt": "lituano", "lv": "letão",
+    "mg": "malgaxe", "mi": "maori", "mk": "macedônio", "ml": "malaiala",
+    "mn": "mongol", "mr": "marata", "ms": "malaio", "mt": "maltês",
+    "my": "birmanês", "ne": "nepalês", "nl": "holandês", "nn": "norueguês (nynorsk)",
+    "no": "norueguês", "oc": "occitano", "pa": "punjabi", "pl": "polonês",
+    "ps": "pachto", "pt": "português", "ro": "romeno", "ru": "russo",
+    "sa": "sânscrito", "sd": "sindhi", "si": "singalês", "sk": "eslovaco",
+    "sn": "shona", "so": "somali", "sq": "albanês", "sr": "sérvio",
+    "su": "sundanês", "sv": "sueco", "sw": "suaíli", "ta": "tâmil",
+    "te": "telugu", "tg": "tajique", "th": "tailandês", "tk": "turcomano",
+    "tl": "filipino", "tr": "turco", "tt": "tártaro", "uk": "ucraniano",
+    "ur": "urdu", "uz": "uzbeko", "vi": "vietnamita", "yi": "iídiche",
+    "yo": "iorubá", "yue": "cantonesa", "zh": "chinês",
+}
 OUTPUT_MODES = {"type": "Digitar", "paste": "Colar (Ctrl+V)"}
 
 
 @dataclass
 class Config:
-    version: int = 3
-    model: str = "base"            # tamanho do modelo Whisper
+    version: int = 5
+    model: str = "small"           # tamanho do modelo Whisper
     language: str = "pt"           # "auto" ou código de idioma (ex.: "pt", "en")
     hotkey: str = "ctrl+win"
     hotkey_mode: str = "hold"
     output_mode: str = "paste"
     vocabulary: str = ""           # nomes, siglas e termos preferidos
     corrections: dict[str, str] | None = None  # fala reconhecida -> forma preferida
+    snippets: dict[str, str] | None = None     # atalho falado -> texto pronto
     review_before_insert: bool = False  # permite corrigir e ensinar antes de colar
     beam_size: int = 3              # qualidade x velocidade da decodificação
     auto_gain: bool = True          # aumenta voz baixa com limite seguro
+    smart_cleanup: bool = True      # remove fillers/repetições e capitaliza
+    onboarded: bool = False         # já mostrou a dica da primeira execução
     device: int | None = None      # índice do dispositivo de entrada; None = padrão
     pix_key: str = ""              # chave Pix exibida no card de doação
     floating: bool = True           # mostra o botão flutuante de microfone
@@ -45,10 +89,11 @@ class Config:
     floating_y: int | None = None
 
     @classmethod
-    def load(cls) -> "Config":
-        if os.path.exists(CONFIG_PATH):
+    def load(cls, path: str | None = None) -> "Config":
+        path = path or CONFIG_PATH
+        if os.path.exists(path):
             try:
-                with open(CONFIG_PATH, encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     data = json.load(f)
                 valid = {field.name for field in fields(cls)}
                 cfg = cls(**{k: v for k, v in data.items() if k in valid})
@@ -57,11 +102,19 @@ class Config:
                 if data.get("output_mode") not in OUTPUT_MODES:
                     cfg.output_mode = "paste"
                 if cfg.model not in MODELS:
-                    cfg.model = "base"
+                    cfg.model = "small"
                 if cfg.language not in LANGUAGES:
                     cfg.language = "pt"
                 if not isinstance(cfg.corrections, dict):
                     cfg.corrections = {}
+                if not isinstance(cfg.snippets, dict):
+                    cfg.snippets = {}
+                # v5: base -> small (as versões antigas instalavam o modelo
+                # errado para termos em inglês). Roda uma vez: a versão é
+                # normalizada em seguida.
+                if data.get("version", 0) < 5 and cfg.model == "base":
+                    cfg.model = "small"
+                cfg.version = 5
                 return cfg
             except Exception:
                 pass
@@ -72,7 +125,7 @@ class Config:
             json.dump(asdict(self), f, indent=2, ensure_ascii=False)
 
     def learned_vocabulary(self) -> str:
-        """Contexto adicional para o Whisper, mantido pequeno e privado."""
+        """Vocabulário preferido (hotwords do Whisper), pequeno e local."""
         words = [self.vocabulary.strip()]
         words.extend(str(value).strip() for value in (self.corrections or {}).values())
         unique: list[str] = []

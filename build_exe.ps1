@@ -16,13 +16,7 @@ $buildPathEntries = $env:Path -split ';' | Where-Object {
 }
 $env:Path = $buildPathEntries -join ';'
 
-& $py -m PyInstaller --noconfirm --clean --onedir --windowed --name Oiee `
-    --icon (Join-Path $root 'assets\icon.ico') `
-    --collect-all ctranslate2 `
-    --collect-all tokenizers `
-    --collect-all av `
-    --collect-submodules faster_whisper `
-    --collect-data faster_whisper `
-    (Join-Path $root 'main.py')
+& $py -m PyInstaller --noconfirm --clean `
+    (Join-Path $root 'Oiee.spec')
 
 Write-Host "OK: dist\Oiee\Oiee.exe"

@@ -9,10 +9,12 @@ import time
 import keyboard
 
 from . import typer
+from .cleanup import cleanup
 from .commands import parse_commands
 from .config import Config
 from .errors import log_exception
 from .recorder import Recorder
+from .snippets import expand_snippets
 from .transcriber import Transcriber
 
 MIN_AUDIO_SECONDS = 0.3  # ignora toques acidentais sem fala
@@ -35,6 +37,21 @@ class DictationEngine:
         keyboard.on_release(self._on_release)
         # pré-carrega o modelo em background para a primeira fala ser rápida
         threading.Thread(target=self.transcriber.load, daemon=True).start()
+
+    def preload(self) -> None:
+        """Pré-carrega o modelo em background logo na inicialização.
+
+        Sem isso, o modelo só carregava DEPOIS da primeira gravação — o app
+        ficava parado no "Transcrevendo…" (baixando/carregando o modelo) e
+        parecia que o atalho não funcionava até "clicar primeiro".
+        """
+        threading.Thread(target=self._load_quietly, daemon=True).start()
+
+    def _load_quietly(self) -> None:
+        try:
+            self.transcriber.load()
+        except Exception:  # noqa: BLE001 — o erro real aparece na 1ª transcrição
+            log_exception("pré-carregamento do modelo")
 
     def reload(self) -> None:
         """Recarrega configuração (modelo/idioma) após salvar nas configurações."""
@@ -141,7 +158,12 @@ class DictationEngine:
             self._recording = False
 
     def _insert_text(self, text: str) -> None:
-        clean, actions = parse_commands(self.cfg.apply_corrections(text), self.cfg.language)
+        text = self.cfg.apply_corrections(text)
+        if self.cfg.smart_cleanup:
+            text = cleanup(text, self.cfg.language)
+        clean, actions = parse_commands(text, self.cfg.language)
+        if clean:
+            clean, _ = expand_snippets(clean, self.cfg.snippets)
         if clean:
             typer.type_text(clean, self.cfg.output_mode)
         if actions:

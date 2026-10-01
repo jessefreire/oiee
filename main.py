@@ -1,8 +1,8 @@
 """Oiee — ditado por voz 100% local.
 
 Uso:  python main.py
-Depois: segure a tecla configurada (padrão: Alt Direito), fale, solte —
-o texto transcrito é digitado no aplicativo em foco.
+Depois: toque Ctrl+Win duas vezes (ou segure a tecla), fale, e o texto
+transcrito é digitado no aplicativo em foco.
 """
 import os
 import sys

@@ -1,7 +1,7 @@
 """Insere o texto transcrito no aplicativo que estiver em foco.
 
 Dois modos:
-- "type":  digita caractere por caractere (como o Wispr Flow).
+- "type":  digita caractere por caractere (como o Oiee).
 - "paste": copia para a área de transferência e envia Ctrl+V — mais robusto
            com acentos em alguns apps.
 

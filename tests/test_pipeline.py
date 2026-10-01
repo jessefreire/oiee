@@ -16,6 +16,7 @@ import numpy as np  # noqa: E402
 import flow.engine as engine_mod  # noqa: E402
 from flow import typer  # noqa: E402
 from flow.commands import parse_commands  # noqa: E402
+from flow.cleanup import cleanup  # noqa: E402
 from flow.config import Config  # noqa: E402
 from flow.engine import DictationEngine  # noqa: E402
 from flow.transcriber import Transcriber  # noqa: E402
@@ -295,6 +296,130 @@ def test_ctrl_win_first_double_tap_does_not_need_keyboard_hook():
     print("OK: primeiro toque duplo Ctrl+Win inicia sem clique")
 
 
+def _make_hotkey():
+    _app = QCoreApplication.instance() or QCoreApplication([])
+    hotkey = CtrlWinHotkey(None)
+    starts, stops = [], []
+    hotkey.start_requested.connect(lambda: starts.append(True))
+    hotkey.stop_requested.connect(lambda: stops.append(True))
+    return hotkey, starts, stops
+
+
+def _tap(hotkey):
+    """Um toque curto: pressiona e solta (rápido demais p/ virar hold)."""
+    hotkey._process_chord_state(True)
+    hotkey._process_chord_state(False)
+
+
+def test_double_tap_starts_and_single_press_stops():
+    hk, starts, stops = _make_hotkey()
+    _tap(hk)
+    _tap(hk)
+    assert starts == [True] and stops == [], (starts, stops)
+    # um toque para parar: soltura não pode armar outro duplo
+    hk._process_chord_state(True)
+    assert stops == [True], (starts, stops)
+    hk._process_chord_state(False)
+    # um tap isolado depois de parar não faz nada (prova que não armou)
+    _tap(hk)
+    assert starts == [True] and stops == [True], (starts, stops)
+    hk.close()
+    print("OK: duplo inicia, toque para, sem reiniciar")
+
+
+def test_double_tap_to_stop_does_not_restart():
+    """Parar com toque duplo não pode reiniciar a gravação (bug real)."""
+    hk, starts, stops = _make_hotkey()
+    _tap(hk)
+    _tap(hk)
+    assert starts == [True]
+    # toque duplo para parar: 1º toque para, 2º não pode iniciar
+    hk._process_chord_state(True)   # para
+    hk._process_chord_state(False)  # soltura ignorada
+    hk._process_chord_state(True)   # 2º toque: seria "tap1" se tivesse armado
+    hk._process_chord_state(False)
+    assert stops == [True] and starts == [True], (starts, stops)
+    hk.close()
+    print("OK: parar com toque duplo não reinicia")
+
+
+def test_slow_first_tap_then_quick_second_starts():
+    """Tap1 lento (vira hold) + tap2 rápido alterna (antes ficava órfão)."""
+    hk, starts, stops = _make_hotkey()
+    hk._process_chord_state(True)
+    hk._start_hold_if_still_down()  # 250ms com o acorde segurado
+    assert starts == [True], (starts, stops)
+    hk._process_chord_state(False)  # solta: para e arma o duplo
+    assert stops == [True], (starts, stops)
+    _tap(hk)
+    assert starts == [True, True] and stops == [True], (starts, stops)
+    hk.close()
+    print("OK: tap lento + tap rápido alterna")
+
+
+def test_hold_starts_on_timer_and_stops_on_release():
+    hk, starts, stops = _make_hotkey()
+    hk._process_chord_state(True)
+    hk._start_hold_if_still_down()
+    assert starts == [True], (starts, stops)
+    hk._process_chord_state(False)
+    assert stops == [True] and starts == [True], (starts, stops)
+    hk.close()
+    print("OK: segurar inicia, soltar para")
+
+
+def test_windows_combo_never_starts_recording():
+    """Ctrl+Win+setas/D (desktops virtuais) não vira ditado nem toggle."""
+    hk, starts, stops = _make_hotkey()
+    # hold: acorde "sujo" não inicia gravação
+    hk._process_chord_state(True)
+    hk._process_chord_state(True, True)   # tecla extra junto
+    hk._start_hold_if_still_down()
+    hk._process_chord_state(False)
+    # dois combos seguidos não contam como toque duplo
+    for _ in range(2):
+        hk._process_chord_state(True)
+        hk._process_chord_state(True, True)
+        hk._process_chord_state(False)
+    assert starts == [] and stops == [], (starts, stops)
+    # e o gesto volta a funcionar logo depois do combo
+    _tap(hk)
+    _tap(hk)
+    assert starts == [True] and stops == [], (starts, stops)
+    hk.close()
+    print("OK: combo do Windows não inicia ditado nem toggle")
+
+
+def test_combo_interrupts_hold_recording():
+    """Se o hold já gravando e surge tecla extra, para na hora."""
+    hk, starts, stops = _make_hotkey()
+    hk._process_chord_state(True)
+    hk._start_hold_if_still_down()
+    assert starts == [True]
+    hk._process_chord_state(True, True)   # Ctrl+Win+D em cima da gravação
+    assert stops == [True], stops
+    hk._process_chord_state(False)        # soltura suja: não conta como tap
+    _tap(hk)
+    assert starts == [True] and stops == [True], (starts, stops)
+    hk.close()
+    print("OK: combo interrompe gravação sem virar toggle")
+
+
+def test_clean_tap_before_combo_does_not_complete_double():
+    """Um tap limpo logo antes do combo não pode ser 'o primeiro toque'."""
+    hk, starts, stops = _make_hotkey()
+    _tap(hk)                              # tap limpo (arma o duplo)
+    hk._process_chord_state(True)         # combo começa...
+    hk._process_chord_state(True, True)
+    hk._process_chord_state(False)        # soltura suja desarma
+    _tap(hk)                              # novo tap limpo = 1º de novo
+    assert starts == [], (starts, stops)
+    _tap(hk)                              # 2º tap: inicia
+    assert starts == [True], (starts, stops)
+    hk.close()
+    print("OK: tap limpo + combo não completa o duplo-toque")
+
+
 def test_new_defaults_use_ctrl_win_and_paste():
     cfg = Config()
     assert cfg.hotkey == "ctrl+win" and cfg.hotkey_mode == "hold"
@@ -302,12 +427,34 @@ def test_new_defaults_use_ctrl_win_and_paste():
     print("OK: padrão Ctrl+Win + colar")
 
 
-def test_vocabulary_becomes_whisper_context():
-    transcriber = Transcriber("tiny", "pt", "Codex, Wispr Flow, AcmeTech")
-    prompt = transcriber._initial_prompt()
-    assert "português brasileiro" in prompt and "AcmeTech" in prompt
-    assert Transcriber("tiny", "pt")._initial_prompt() is None
-    print("OK: vocabulário vira contexto do Whisper")
+def test_vocabulary_becomes_whisper_hotwords():
+    """Bug real: no faster-whisper o initial_prompt anula os hotwords.
+
+    O vocabulário precisa entrar como hotwords, sem nenhum initial_prompt.
+    """
+    captured = {}
+
+    class _Segments:
+        def __iter__(self):
+            return iter([type("Seg", (), {"text": " texto"})()])
+
+    class _Model:
+        def transcribe(self, audio, **kwargs):
+            captured.update(kwargs)
+            return _Segments(), None
+
+    with_vocab = Transcriber("tiny", "pt", "Codex, Oiee, AcmeTech")
+    with_vocab.load = lambda: _Model()
+    assert with_vocab.transcribe(np.zeros(1600, dtype=np.float32)) == "texto"
+    assert captured["hotwords"] == "Codex, Oiee, AcmeTech", captured
+    assert "initial_prompt" not in captured, captured.keys()
+
+    captured.clear()
+    plain = Transcriber("tiny", "pt")
+    plain.load = lambda: _Model()
+    plain.transcribe(np.zeros(1600, dtype=np.float32))
+    assert captured["hotwords"] is None and "initial_prompt" not in captured, captured
+    print("OK: vocabulário vira hotwords, sem initial_prompt")
 
 
 def test_user_profile_learns_and_reuses_confirmed_correction():
@@ -318,6 +465,18 @@ def test_user_profile_learns_and_reuses_confirmed_correction():
     context = cfg.learned_vocabulary()
     assert "Jesse" in context and "Oiee" in context
     print("OK: perfil aprende correções confirmadas localmente")
+
+
+def test_preload_runs_load_in_background():
+    """preload() dispara load() em thread daemon sem bloquear nem baixar nada aqui."""
+    import threading
+    cfg = Config(model="tiny", language="pt")
+    engine = DictationEngine(cfg, FakeOverlay())
+    done = threading.Event()
+    engine.transcriber.load = lambda: done.set()
+    engine.preload()
+    assert done.wait(5), "preload() não executou load() em background"
+    print("OK: pré-carregamento do modelo em background")
 
 
 def test_auto_gain_boosts_quiet_voice_without_changing_silence():
@@ -348,9 +507,201 @@ def test_engine_executes_voice_commands():
     finally:
         typer.type_text, typer.apply_actions = orig_type, orig_apply
         engine_mod.Recorder = REAL_RECORDER
-    assert captured_text.get("text") == "vamos sair e", captured_text
+    # a limpeza automática capitaliza; o comando remove a última frase
+    assert captured_text.get("text") == "Vamos sair e", captured_text
     assert captured_actions.get("actions") == ["delete_last_word"], captured_actions
     print("OK: comandos por voz no engine")
+
+
+# ------------------------------------------------------------------ limpeza (Tier 1)
+def test_cleanup_removes_fillers_pt():
+    out = cleanup("hum, então vamos ah, fazer isso", "pt")
+    assert out == "Então vamos, fazer isso", out
+    print("OK: fillers PT removidos")
+
+
+def test_cleanup_removes_fillers_en():
+    out = cleanup("Um, I uh want to go", "en")
+    assert out == "I want to go", out
+    print("OK: fillers EN removidos")
+
+
+def test_cleanup_auto_keeps_article_um():
+    # em "auto" o "um" é artigo de verdade e não pode sumir
+    assert cleanup("um carro vermelho", "auto") == "Um carro vermelho"
+    print("OK: 'auto' não remove artigo")
+
+
+def test_cleanup_dedupes_repetitions():
+    assert cleanup("Eu vou sim. Eu vou sim.", "pt") == "Eu vou sim."
+    assert cleanup("eu eu eu gosto de café", "pt") == "Eu gosto de café"
+    assert cleanup("que que isso", "pt") == "Que que isso"  # 2x é legítimo
+    print("OK: repetições deduplicadas")
+
+
+def test_cleanup_capitalizes_sentences():
+    assert cleanup("bom dia. tudo bem? sim!", "pt") == "Bom dia. Tudo bem? Sim!"
+    assert cleanup("and i think it works", "en") == "And I think it works"
+    print("OK: capitalização de frases")
+
+
+def test_smart_cleanup_flag_disables_cleaning():
+    captured = {}
+    original = typer.type_text
+    typer.type_text = lambda t, mode="type": captured.update(text=t)
+    try:
+        engine = DictationEngine(Config(model="tiny", language="pt", smart_cleanup=False), FakeOverlay())
+        engine._insert_text("ah hum, vamos lá. vamos lá.")
+    finally:
+        typer.type_text = original
+    assert captured.get("text") == "ah hum, vamos lá. vamos lá.", captured
+    print("OK: smart_cleanup=False preserva o texto cru")
+
+
+def test_app_context_feature_removed():
+    """Feature removida: nem o engine nem o transcriber levam o app em foco."""
+    import inspect
+
+    from flow import engine as engine_module
+
+    assert "context" not in inspect.signature(Transcriber.transcribe).parameters
+    assert not hasattr(Config(), "app_context")
+    source = inspect.getsource(engine_module)
+    assert "foreground_title" not in source and "app_context" not in source
+    print("OK: contexto do app em foco removido do pipeline")
+
+
+def test_default_overlay_position_is_bottom_center():
+    from PySide6.QtCore import QRect
+
+    from flow.qt_app import default_overlay_position
+
+    # área útil 1920x1032 (taskbar de 48px embaixo): centro + 16px acima
+    assert default_overlay_position(64, 20, QRect(0, 0, 1920, 1032)) == (928, 996)
+    # monitor secundário à direita: acompanha a área útil, não a tela toda
+    assert default_overlay_position(64, 20, QRect(1920, 0, 1920, 1080)) == (2848, 1044)
+    # sem tela (headless): fallback fixo
+    assert default_overlay_position(64, 20, None) == (900, 700)
+    print("OK: default da barra = centro inferior acima da taskbar")
+
+
+def test_config_defaults_and_migration():
+    import json
+    import os
+    import tempfile
+
+    fresh = Config()
+    assert fresh.smart_cleanup and fresh.onboarded is False
+    assert fresh.model == "small" and fresh.version == 5
+    cfg = Config.load()  # config.json atual (ou ausente -> defaults)
+    assert isinstance(cfg.smart_cleanup, bool)
+    # migração v5: configs antigas com base sobem para small uma única vez
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump({"version": 4, "model": "base", "hotkey": "ctrl"}, f)
+        old_path = f.name
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump({"version": 5, "model": "base"}, f)
+        v5_path = f.name
+    try:
+        migrated = Config.load(old_path)
+        assert migrated.model == "small" and migrated.version == 5, migrated
+        assert migrated.hotkey == "ctrl+win" and migrated.hotkey_mode == "toggle"
+        explicit = Config.load(v5_path)
+        assert explicit.model == "base" and explicit.version == 5, explicit
+    finally:
+        os.unlink(old_path)
+        os.unlink(v5_path)
+    print("OK: defaults novos + migração base->small (v5)")
+
+
+def test_autostart_safe_outside_frozen_build():
+    from flow import autostart
+
+    # fora do .exe nada é registrado (não há o que colocar no Run)
+    assert autostart.available() is False
+    assert autostart.is_enabled() is False
+    assert autostart.set_enabled(True) is False
+    print("OK: autostart seguro fora do .exe")
+
+
+# ------------------------------------------------------------------ snippets (Tier 2)
+def test_snippet_expands_in_engine():
+    captured = {}
+    original = typer.type_text
+    typer.type_text = lambda t, mode="type": captured.update(text=t)
+    try:
+        cfg = Config(model="tiny", language="pt", smart_cleanup=False)
+        cfg.snippets = {"agenda": "Reunião de 30 min? https://exemplo.com/reuniao"}
+        engine = DictationEngine(cfg, FakeOverlay())
+        engine._insert_text("olá snippet agenda")
+    finally:
+        typer.type_text = original
+    assert captured.get("text") == "olá Reunião de 30 min? https://exemplo.com/reuniao", captured
+    print("OK: snippet expandido no engine")
+
+
+def test_snippet_case_insensitive_and_longest_name():
+    from flow.snippets import expand_snippets
+
+    table = {"agenda": "A", "agenda semanal": "B"}
+    out, count = expand_snippets("vamos a snippet AGENDA", table)
+    assert out == "vamos a A" and count == 1, (out, count)
+    out, count = expand_snippets("snippet agenda semanal ok", table)
+    assert out == "B ok" and count == 1, (out, count)
+    print("OK: snippet case-insensitive, nome mais longo primeiro")
+
+
+def test_snippet_unknown_name_stays():
+    from flow.snippets import expand_snippets
+
+    out, count = expand_snippets("snippet inventado aqui", {"agenda": "A"})
+    assert out == "snippet inventado aqui" and count == 0, (out, count)
+    out, count = expand_snippets("sem marcador", None)
+    assert out == "sem marcador" and count == 0, (out, count)
+    print("OK: snippet desconhecido/ausente não mexe no texto")
+
+
+def test_snippet_body_with_newlines():
+    from flow.snippets import expand_snippets
+
+    out, count = expand_snippets("assinatura snippet ass", {"ass": "Abraço,\nJesse"})
+    assert out == "assinatura Abraço,\nJesse" and count == 1, (out, count)
+    print("OK: quebra de linha preservada no corpo")
+
+
+# ------------------------------------------------------------------ idiomas (Tier 2)
+def test_commands_spanish():
+    clean, actions = parse_commands("hola mundo punto y coma adiós punto final", "es")
+    assert clean == "hola mundo; adiós.", (clean, actions)
+    clean, actions = parse_commands("borrar la última palabra", "es")
+    assert clean == "" and actions == ["delete_last_word"], (clean, actions)
+    print("OK: comandos por voz em espanhol")
+
+
+def test_commands_french():
+    clean, actions = parse_commands("salut virgule monde point d'exclamation", "fr")
+    assert clean == "salut, monde!", (clean, actions)
+    clean, actions = parse_commands("effacer le dernier mot", "fr")
+    assert clean == "" and actions == ["delete_last_word"], (clean, actions)
+    print("OK: comandos por voz em francês")
+
+
+def test_language_names_cover_all_languages():
+    from flow.config import LANGUAGES, LANGUAGE_NAMES
+
+    missing = [code for code in LANGUAGES if code not in LANGUAGE_NAMES]
+    assert not missing, missing
+    assert len(LANGUAGES) >= 99, len(LANGUAGES)
+    assert LANGUAGE_NAMES["auto"] == "detectar automaticamente"
+    print("OK: rótulos PT para todos os idiomas")
+
+
+def test_config_snippets_field():
+    fresh = Config()
+    assert fresh.snippets is None
+    loaded = Config.load()
+    assert isinstance(loaded.snippets, dict), type(loaded.snippets)
+    print("OK: campo snippets carrega como dict")
 
 
 if __name__ == "__main__":
@@ -372,10 +723,36 @@ if __name__ == "__main__":
     test_toggle_mode()
     test_chord_keys_normalization()
     test_ctrl_win_first_double_tap_does_not_need_keyboard_hook()
+    test_double_tap_starts_and_single_press_stops()
+    test_double_tap_to_stop_does_not_restart()
+    test_slow_first_tap_then_quick_second_starts()
+    test_hold_starts_on_timer_and_stops_on_release()
+    test_windows_combo_never_starts_recording()
+    test_combo_interrupts_hold_recording()
+    test_clean_tap_before_combo_does_not_complete_double()
+    test_default_overlay_position_is_bottom_center()
     test_new_defaults_use_ctrl_win_and_paste()
-    test_vocabulary_becomes_whisper_context()
+    test_vocabulary_becomes_whisper_hotwords()
     test_user_profile_learns_and_reuses_confirmed_correction()
     test_auto_gain_boosts_quiet_voice_without_changing_silence()
+    test_preload_runs_load_in_background()
     test_recorder_recent_returns_last_chunk()
     test_recorder_flattens_2d_frames()
+    test_cleanup_removes_fillers_pt()
+    test_cleanup_removes_fillers_en()
+    test_cleanup_auto_keeps_article_um()
+    test_cleanup_dedupes_repetitions()
+    test_cleanup_capitalizes_sentences()
+    test_smart_cleanup_flag_disables_cleaning()
+    test_app_context_feature_removed()
+    test_config_defaults_and_migration()
+    test_autostart_safe_outside_frozen_build()
+    test_snippet_expands_in_engine()
+    test_snippet_case_insensitive_and_longest_name()
+    test_snippet_unknown_name_stays()
+    test_snippet_body_with_newlines()
+    test_commands_spanish()
+    test_commands_french()
+    test_language_names_cover_all_languages()
+    test_config_snippets_field()
     print("\nTodos os testes passaram!")

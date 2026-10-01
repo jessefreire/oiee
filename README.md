@@ -10,7 +10,7 @@ trabalhando.
 ## 📥 Instalação
 
 **Opção 1 — Instalador (recomendado):** baixe `Oiee-Setup-0.1.0.exe` da
-página de [Releases](https://github.com/SEU_USUARIO/flow-local/releases) e
+página de [Releases](https://github.com/jessefreire/oiee/releases) e
 instale. Cria atalho no menu Iniciar, com desinstalador.
 
 **Opção 2 — Portátil:** baixe e extraia a pasta `Oiee` e execute
@@ -19,7 +19,7 @@ espera de extração a cada inicialização.
 
 **Opção 3 — Do código:**
 ```bash
-git clone https://github.com/SEU_USUARIO/oiee.git
+git clone https://github.com/jessefreire/oiee.git
 cd oiee
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
@@ -33,21 +33,22 @@ python -m venv .venv
 
 ## 🎮 Como usar
 
-1. Rode o Oiee — aparece um **botão flutuante de microfone** na tela
-   (arraste-o para onde preferir) e um ícone na bandeja.
+1. Rode o Oiee — aparece uma **barrinha azul flutuante** na tela (por padrão
+   centralizada embaixo; arraste-a para onde preferir) e um ícone na bandeja.
 2. **Dite**: toque no botão flutuante (ou segure/tocar o atalho), fale, e toque
    de novo para parar — o texto aparece onde o cursor estiver.
-3. Configurações: **clique com o botão esquerdo** no ícone da bandeja (ou direito
-   → menu) → **Configurações**.
+3. Configurações: **clique com o botão direito** no botão flutuante, ou
+   **botão direito no ícone da bandeja** → **Configurações**.
 
 ### Botão flutuante 🎤
 
-- **Ocioso**: bolinha azul de microfone, sempre visível, **arrastável** (a
-  posição é lembrada entre sessões).
+- **Ocioso**: **barrinha horizontal azul bem pequena** (estilo Flow Bar do
+  Wispr Flow), sempre visível, **arrastável** (a posição é lembrada entre
+  sessões). Por padrão ela nasce **centralizada embaixo, um pouco acima da
+  barra de tarefas** — e clareia quando o mouse passa por cima;
 - **Gravando**: vira um cartão com as **ondas sonoras ao vivo** e o tempo de
-  gravação — fale olhando pra ele, igual ao Wispr.
+  gravação — fale olhando pra ele, igual ao Oiee.
 - **Clique** para ligar/desligar a gravação, em qualquer momento.
-- Pode ser ocultado em Configurações → Interface.
 
 ### Atalhos disponíveis
 
@@ -55,15 +56,13 @@ python -m venv .venv
 
 | Atalho | Modo |
 |---|---|
-| Alt Direito (padrão) | segurar |
-| Caps Lock | segurar |
-| F9 | segurar |
-| Ctrl + Win | alternar |
-| Ctrl + Espaço | alternar |
-| Personalizado (ex.: `ctrl+alt+f7`) | segurar ou alternar |
+| **Ctrl + Win** (padrão) | **segurar** = fala enquanto a tecla estiver pressionada |
+| **Ctrl + Win** (padrão) | **toque duplo** = liga/desliga a gravação (toggle) |
 
-> ⚠️ **Ctrl + Espaço** é o atalho padrão do Windows para alternar idioma de
-> entrada (IME) em algumas configurações — se isso te atrapalhar, use outro.
+> O atalho funciona com um único toque duplo (não precisa de hook de teclado
+> antes de iniciar), nunca "reinicia" sozinho se você parar gravando com um
+> toque rápido, e **ignora combos do Windows** — `Ctrl+Win` junto com setas,
+> `D` ou outra tecla (desktops virtuais, etc.) nunca dispara gravação.
 
 ---
 
@@ -72,8 +71,8 @@ python -m venv .venv
 | Modelo | Tamanho | Qualidade | Velocidade (CPU) |
 |--------|---------|-----------|------------------|
 | `tiny` | 75 MB | baixa | instantâneo |
-| `base` | 145 MB | boa | rápido ⭐ padrão |
-| `small` | 460 MB | muito boa | moderado |
+| `base` | 145 MB | boa | rápido |
+| `small` | 460 MB | muito boa | moderado ⭐ padrão |
 | `medium` | 1,5 GB | excelente | lento |
 | `large-v3` | 3 GB | melhor | bem lento |
 
@@ -84,13 +83,18 @@ python -m venv .venv
 O Oiee pode reduzir erros recorrentes sem enviar gravações para a internet e
 sem retreinar o modelo de IA. Em **Configurações** você encontra:
 
-- **Meu vocabulário**: nomes, clientes, siglas, marcas e projetos que devem
-  receber prioridade na transcrição;
+- **Meu vocabulário**: termos técnicos, nomes, siglas e marcas (ex.:
+  `Kubernetes`, `Power BI`, `pull request`) com prioridade na transcrição —
+  o principal remédio para termos em inglês saírem errados;
 - **Revisar antes de inserir**: exibe o texto antes de colar. Ao corrigir e
   escolher **Inserir e aprender**, o Oiee memoriza apenas as trocas
   confirmadas (por exemplo, `jece` → `Jesse`);
 - **Gerenciar correções aprendidas**: permite editar ou apagar cada correção,
-  ou limpar tudo quando quiser.
+  ou limpar tudo quando quiser;
+- **Limpar texto automaticamente**: remove muletas de fala (*"ahm", "tipo"*)
+  e repetições, e capitaliza as frases — pode ser desligada;
+- **Iniciar com o Windows**: registro no registro do Windows (HKCU `Run`),
+  com caixa de seleção nas Configurações e tarefa opcional no instalador.
 
 O perfil fica no `config.json` do próprio computador. Áudio não é salvo e
 nada é enviado à nuvem. A revisão vem desativada por padrão para manter o
@@ -98,10 +102,38 @@ ditado instantâneo.
 
 ---
 
+## 🌐 Idiomas
+
+São **99 idiomas** do Whisper + detecção automática, todos com rótulo em
+português na Configurações → Idioma. Por padrão, o app transcreve em
+**português brasileiro**.
+
+Os **comandos por voz** seguem o idioma escolhido: há tabela própria para
+`pt`, `en`, `es` e `fr` (nos demais idiomas vale a tabela em português).
+
+---
+
+## 📌 Snippets
+
+Snippet é um **texto pronto** disparado por uma palavra falada — perfeito para
+respostas repetitivas, assinaturas e endereços:
+
+1. Em Configurações → **Gerenciar snippets**, cadastre no formato
+   `atalho => texto` (ex.: `agenda => Reunião de 30 min? https://calendly.com/...`);
+   use `\n` para quebra de linha;
+2. Durante o ditado, diga **`snippet` + o atalho** (ex.: *"snippet agenda"*);
+3. O texto pronto entra no lugar — sem diferenciar maiúsculas/acentos, e o
+   nome mais longo tem prioridade.
+
+A expansão acontece depois da limpeza e dos comandos por voz: o corpo do
+snippet entra como texto final. Tudo fica no `config.json` local.
+
+---
+
 ## Comandos por voz 🗣️
 
-Diga um destes comandos durante o ditado (português por padrão; em `en` vale a
-tabela em inglês):
+Diga um destes comandos durante o ditado — a tabela segue o idioma escolhido
+(`pt`, `en`, `es`, `fr`; nos demais vale a de português):
 
 | Você diz | Acontece |
 |---|---|
@@ -122,13 +154,17 @@ Exemplo: "hoje **vírgula** vamos sair **ponto final**" → `hoje, vamos sair.`
 
 ---
 
-## 💚 Apoie o projeto
+## 🔒 Privacidade e dados
 
-O Oiee é **gratuito e open source** (licença MIT). Se ele te ajudar no dia
-a dia e você quiser contribuir, qualquer valor é bem-vindo:
+Em Configurações → **Privacidade e dados** você vê a declaração completa do
+app. Resumindo:
 
-**Pix:** *(adicione sua chave em Configurações → "Apoie o projeto" — ela fica
-salva em `config.json` e pode ser copiada com um clique)*
+- A transcrição roda **100% local** — sem servidores, sem conta, sem limite
+  de palavras, sem telemetria;
+- O **único** acesso à internet é o download do modelo na primeira
+  execução (Hugging Face); depois, tudo offline;
+- Vocabulário, correções e snippets ficam só no `config.json` deste PC;
+- Único arquivo de log: `oiee-error.log` (erros técnicos, local).
 
 ---
 
@@ -172,15 +208,14 @@ powershell -ExecutionPolicy Bypass -File scripts/make_test_audio.ps1   # gera á
 .venv\Scripts\python tests\test_pipeline.py
 ```
 
-Antes de publicar no GitHub: troque `SEU_USUARIO` pela sua conta no
-`installer.iss` (AppPublisherURL) e no README, e atualize a versão.
-
 ---
 
 ## Problemas comuns
 
-- **A primeira transcrição demora**: o modelo é baixado/carregado somente após
-  a primeira gravação, para que a interface e o atalho iniciem imediatamente.
+- **A primeira fala demora**: o modelo é pré-carregado em background ao abrir
+  o app — passe o mouse no ícone da bandeja: "carregando modelo…" vira o
+  atalho quando estiver pronto. Na primeiríssima execução ele é baixado
+  (~75 MB a 3 GB, conforme o modelo). Depois disso, tudo é local e rápido.
 - **Não digita em apps como administrador**: o hook global do Windows não enxerga
   teclas em janelas elevadas. Rode o Oiee como administrador nesse caso.
 - **Texto sai sem acentos ou o app "engole" caracteres**: troque para o modo
@@ -195,19 +230,21 @@ Antes de publicar no GitHub: troque `SEU_USUARIO` pela sua conta no
 ## Estrutura
 
 ```
-main.py              # ponto de entrada (bandeja + hotkey)
+main.py              # ponto de entrada (mutex single-instance + boot)
 flow/
-  config.py          # configuração persistida em config.json (atalho, Pix, modelo…)
+  config.py          # configuração em config.json (modelo, idioma, snippets…)
   recorder.py        # gravação do microfone (sounddevice)
   transcriber.py     # transcrição local (faster-whisper, CPU int8)
-  commands.py        # comandos por voz (pontuação, linhas, edição)
+  commands.py        # comandos por voz (pt/en/es/fr: pontuação, linhas, edição)
+  snippets.py        # expansão de snippets ("snippet <atalho>" -> texto pronto)
+  cleanup.py         # limpeza de texto (fillers, repetições, capitalização)
+  autostart.py       # iniciar com o Windows (HKCU Run, só no .exe)
   typer.py           # digita/cola o texto e executa ações de teclado
-  engine.py          # hotkey (segurar/alternar) -> gravar -> transcrever -> digitar
-  overlay.py         # UI em CustomTkinter: overlay "gravando…" + configurações
-  tray.py            # ícone na bandeja (pystray)
+  engine.py          # gravar -> transcrever -> limpar -> comandos -> digitar
+  qt_app.py          # UI Qt: overlay, bandeja, configurações, diálogos
 assets/              # ícones do app
 scripts/             # utilitários (ícone, áudio de teste, build)
-tests/               # testes ponta a ponta
+tests/               # testes ponta a ponta (50)
 build_exe.ps1        # build do .exe com PyInstaller
 installer.iss        # script do instalador (Inno Setup)
 ```
