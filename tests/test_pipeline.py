@@ -697,10 +697,22 @@ def test_language_names_cover_all_languages():
 
 
 def test_config_snippets_field():
+    import json
+    import os
+    import tempfile
+
     fresh = Config()
     assert fresh.snippets is None
-    loaded = Config.load()
+    # carrega de um config.json temporário: sem arquivo o default é None
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump({"snippets": {"ola": "Oi! Tudo bem?"}}, f)
+        path = f.name
+    try:
+        loaded = Config.load(path)
+    finally:
+        os.unlink(path)
     assert isinstance(loaded.snippets, dict), type(loaded.snippets)
+    assert loaded.snippets["ola"] == "Oi! Tudo bem?"
     print("OK: campo snippets carrega como dict")
 
 
