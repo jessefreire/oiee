@@ -716,6 +716,76 @@ def test_config_snippets_field():
     print("OK: campo snippets carrega como dict")
 
 
+def test_model_load_failure_sets_error_status():
+    """Falha ao carregar o modelo marca STATUS_ERROR (tooltip não fica preso)."""
+    import time as _time
+
+    import faster_whisper
+    from flow.transcriber import STATUS_ERROR, Transcriber
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("Unable to open file 'model.bin'")
+
+    original_model, original_sleep = faster_whisper.WhisperModel, _time.sleep
+    faster_whisper.WhisperModel, _time.sleep = _boom, lambda _s: None
+    try:
+        transcriber = Transcriber(model_name="tiny", language="pt")
+        try:
+            transcriber.load()
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("load() deveria propagar a falha")
+        assert transcriber.status == STATUS_ERROR, transcriber.status
+    finally:
+        faster_whisper.WhisperModel, _time.sleep = original_model, original_sleep
+    print("OK: falha de carga marca STATUS_ERROR")
+
+
+def test_second_instance_ping_event():
+    """Evento nomeado de ping: clique no atalho com o app rodando sinaliza a 1ª."""
+    import ctypes
+
+    import main as main_mod
+
+    handle = main_mod._create_ping_event()
+    if sys.platform == "win32":
+        assert handle, "CreateEventW do ping falhou"
+    # sinalizar não pode levantar: se a 1ª instância criou, SetEvent roda;
+    # se não, OpenEvent falha e a função simplesmente não faz nada
+    main_mod._ping_running_instance()
+    if handle:
+        ctypes.windll.kernel32.CloseHandle(handle)
+    print("OK: ping entre instâncias não levanta erro")
+
+
+def test_ping_listener_emits_on_setevent():
+    """PingListener emite pinged quando a 2ª instância sinaliza o evento."""
+    import ctypes
+
+    from PySide6.QtCore import QTimer
+
+    from flow.qt_app import PingListener
+
+    import main as main_mod
+
+    if sys.platform != "win32":
+        print("OK: PingListener (ignorado fora do Windows)")
+        return
+    app = QCoreApplication.instance() or QCoreApplication([])
+    handle = main_mod._create_ping_event()
+    assert handle, "CreateEventW do ping falhou"
+    listener = PingListener(handle)
+    fired: list[bool] = []
+    listener.pinged.connect(lambda: (fired.append(True), app.quit()))
+    QTimer.singleShot(50, main_mod._ping_running_instance)
+    QTimer.singleShot(3000, app.quit)  # trava de segurança
+    app.exec()
+    ctypes.windll.kernel32.CloseHandle(handle)
+    assert fired, "PingListener não emitiu pinged com SetEvent"
+    print("OK: PingListener emite pinged no evento")
+
+
 if __name__ == "__main__":
     test_dictation_transcribes_and_types()
     test_silence_is_ignored()
@@ -767,4 +837,7 @@ if __name__ == "__main__":
     test_commands_french()
     test_language_names_cover_all_languages()
     test_config_snippets_field()
+    test_model_load_failure_sets_error_status()
+    test_second_instance_ping_event()
+    test_ping_listener_emits_on_setevent()
     print("\nTodos os testes passaram!")

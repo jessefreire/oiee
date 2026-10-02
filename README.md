@@ -9,7 +9,7 @@ trabalhando.
 
 ## 📥 Instalação
 
-**Opção 1 — Instalador (recomendado):** baixe `Oiee-Setup-0.1.0.exe` da
+**Opção 1 — Instalador (recomendado):** baixe `Oiee-Setup-0.1.1.exe` da
 página de [Releases](https://github.com/jessefreire/oiee/releases) e
 instale. Cria atalho no menu Iniciar, com desinstalador.
 
@@ -244,7 +244,7 @@ flow/
   qt_app.py          # UI Qt: overlay, bandeja, configurações, diálogos
 assets/              # ícones do app
 scripts/             # utilitários (ícone, áudio de teste, build)
-tests/               # testes ponta a ponta (50)
+tests/               # testes ponta a ponta (52)
 build_exe.ps1        # build do .exe com PyInstaller
 installer.iss        # script do instalador (Inno Setup)
 ```

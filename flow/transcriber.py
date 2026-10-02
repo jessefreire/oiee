@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 STATUS_IDLE = "modelo não carregado"
 STATUS_LOADING = "carregando modelo…"
 STATUS_READY = "modelo pronto"
+STATUS_ERROR = "erro ao carregar modelo"
 
 
 class Transcriber:
@@ -45,7 +46,7 @@ class Transcriber:
                         last_error = exc
                         time.sleep(2 * (attempt + 1))
                 if self._model is None:
-                    self.status = STATUS_IDLE
+                    self.status = STATUS_ERROR
                     raise last_error  # type: ignore[misc]
                 self.status = STATUS_READY
         return self._model

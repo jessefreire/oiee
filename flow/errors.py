@@ -21,8 +21,9 @@ def log_path() -> str:
 def log_exception(context: str = "") -> None:
     """Grava a exceção atual em oiee-error.log (nunca levanta)."""
     try:
+        from datetime import datetime
         with open(log_path(), "a", encoding="utf-8") as f:
-            f.write(f"\n===== {context} =====\n")
+            f.write(f"\n===== {context} ===== {datetime.now():%Y-%m-%d %H:%M:%S}\n")
             f.write(traceback.format_exc())
     except Exception:
         pass

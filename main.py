@@ -25,6 +25,38 @@ from PySide6.QtCore import QTimer
 # no .exe empacotado, fica ao lado do executável; senão, na raiz do projeto
 LOCK_PATH = os.path.join(_base_dir(), ".oiee.lock")
 
+# Evento nomeado do kernel: quando o usuário clica no atalho com o app já
+# rodando (autostart), a 2ª instância sinaliza a 1ª para destacar a barra —
+# sem isso o clique parecia não fazer nada ("o app quase não abre").
+_PING_NAME = "Oiee_ActivatePing"
+
+
+def _create_ping_event():
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateEventW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR)
+    k32.CreateEventW.restype = wintypes.HANDLE
+    return k32.CreateEventW(None, False, False, _PING_NAME)
+
+
+def _ping_running_instance() -> None:
+    if sys.platform != "win32":
+        return
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenEventW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+    k32.OpenEventW.restype = wintypes.HANDLE
+    k32.SetEvent.argtypes = (wintypes.HANDLE,)
+    EVENT_MODIFY_STATE = 0x0002
+    handle = k32.OpenEventW(EVENT_MODIFY_STATE, False, _PING_NAME)
+    if handle:
+        k32.SetEvent(handle)
+        k32.CloseHandle(handle)
+
 
 _SINGLE_INSTANCE_MUTEX = None
 
@@ -75,12 +107,13 @@ def _release_lock() -> None:
 
 def main() -> None:
     if not _acquire_single_instance():
+        _ping_running_instance()  # já roda: avisa a instância ativa (feedback do clique)
         return  # já existe outra instância rodando
     cfg = Config.load()
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
-    flow = FlowApplication(app, cfg)
+    flow = FlowApplication(app, cfg, ping_event=_create_ping_event())
 
     # flags de depuração (usadas nos testes do .exe congelado)
     if "--debug-mark" in sys.argv:

@@ -3,7 +3,7 @@
 ; Requisito: rodar build_exe.ps1 antes (gera dist\Oiee\Oiee.exe).
 
 #define MyAppName "Oiee"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.1"
 #define MyAppExeName "Oiee.exe"
 
 [Setup]

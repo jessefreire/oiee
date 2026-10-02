@@ -4,11 +4,12 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes
 import os
+import threading
 import time
 
 import numpy as np
 import sounddevice as sd
-from PySide6.QtCore import QObject, QTimer, Qt, Signal, QRect, QRectF
+from PySide6.QtCore import (QObject, QTimer, Qt, Signal, QRect, QRectF)
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFormLayout, QMenu,
                                QHBoxLayout, QLabel, QPushButton, QSystemTrayIcon,
@@ -21,7 +22,7 @@ from .commands import parse_commands
 from .engine import DictationEngine
 from .errors import log_path
 from .snippets import expand_snippets
-from .transcriber import STATUS_READY
+from .transcriber import STATUS_ERROR, STATUS_READY
 from . import typer
 
 # Default do botão flutuante: centro inferior, um pouco acima da barra de
@@ -40,6 +41,30 @@ def default_overlay_position(width: int = 64, height: int = 20, area: QRect | No
     x = area.left() + (area.width() - width) // 2
     y = area.bottom() + 1 - height - DEFAULT_GAP_ABOVE_TASKBAR
     return int(x), int(y)
+
+
+class PingListener(QObject):
+    """Escuta o evento nomeado criado pela instância ativa.
+
+    A 2ª instância (clique no atalho com o app rodando) sinaliza esse evento;
+    a thread de espera emite ``pinged`` na thread da UI. Fazemos isso com
+    WaitForSingleObject + Signal porque o QWinEventNotifier do PySide6 6.11
+    não converte o argumento HANDLE do sinal ``activated``.
+    """
+    pinged = Signal()
+
+    def __init__(self, handle: int):
+        super().__init__()
+        self._handle = handle
+        threading.Thread(target=self._wait_loop, daemon=True).start()
+
+    def _wait_loop(self) -> None:
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.WaitForSingleObject.argtypes = (ctypes.c_void_p, wintypes.DWORD)
+        k32.WaitForSingleObject.restype = wintypes.DWORD
+        WAIT_OBJECT_0 = 0
+        while k32.WaitForSingleObject(self._handle, 0xFFFFFFFF) == WAIT_OBJECT_0:
+            self.pinged.emit()  # evento auto-reset: proxima espera bloqueia de novo
 
 
 class UiBridge(QObject):
@@ -553,7 +578,7 @@ class Settings(QDialog):
 
 
 class FlowApplication(QObject):
-    def __init__(self, app: QApplication, cfg: Config):
+    def __init__(self, app: QApplication, cfg: Config, ping_event=None):
         super().__init__(); self.app, self.cfg = app, cfg; self.bridge = UiBridge(); self.overlay = Overlay(cfg)
         # Não aceite a primeira interação antes do loop Qt e do hook global
         # estarem prontos. Isso eliminia o primeiro clique/atalho perdido.
@@ -565,7 +590,37 @@ class FlowApplication(QObject):
         # A barra só aparece depois que a leitura nativa já está ativa. Não
         # reiniciamos o monitor depois disso: um reinício atrasado podia apagar
         # justamente a primeira combinação pressionada pelo usuário.
+        self._loading_polls = 0
+        self._ping_notifier = None
+        if ping_event is not None:
+            # clique no atalho com o app já rodando: 2ª instância sinaliza aqui
+            self._ping_handle = ping_event  # mantém o handle vivo durante o app
+            self._ping_listener = PingListener(ping_event)
+            self._ping_listener.pinged.connect(self._on_ping)
         QTimer.singleShot(0, self._become_ready)
+
+    def _on_ping(self, *_):
+        """Feedback do clique no atalho: o app já está ativo — destaca a barra."""
+        self.tray.showMessage("Oiee", "Já estou por aqui — destaquei a barra azul na tela.",
+                              QSystemTrayIcon.Information, 3000)
+        if self.overlay.state == "idle":
+            if not self.overlay.isVisible() and self.cfg.floating:
+                self.overlay.set_state("idle")
+            if self.overlay.isVisible():
+                self.overlay.raise_()
+                self._flash_overlay()
+
+    def _flash_overlay(self) -> None:
+        """Pulso de opacidade na barra para o clique não passar despercebido."""
+        steps = [0.3, 1.0, 0.3, 1.0, 0.3, 1.0]
+
+        def step(i: int = 0) -> None:
+            if i >= len(steps):
+                return
+            self.overlay.setWindowOpacity(steps[i])
+            QTimer.singleShot(150, lambda: step(i + 1))
+
+        step()
 
     def _become_ready(self):
         if not self.hotkey.register():
@@ -588,18 +643,33 @@ class FlowApplication(QObject):
         self._onboarding.raise_()
 
     def _watch_model_status(self) -> None:
-        """Mostra o carregamento do modelo no tooltip da bandeja."""
+        """Mostra o carregamento do modelo no tooltip/balão da bandeja."""
         if self._watching_model:
             return
         self._watching_model = True
+        self._loading_polls = 0
         self._poll_model_status()
 
     def _poll_model_status(self) -> None:
-        if self.engine.transcriber.status == STATUS_READY:
+        status = self.engine.transcriber.status
+        if status == STATUS_READY:
             self.tray.setToolTip("Oiee — Ctrl+Win: duplo toque ou segurar")
             self._watching_model = False
             return
+        if status == STATUS_ERROR:
+            # sem esse ramo o tooltip ficava preso em "carregando modelo…" para
+            # sempre quando o download/carregamento falhava.
+            self.tray.setToolTip("Oiee — modelo de voz não carregou (veja oiee-error.log)")
+            self.tray.showMessage("Oiee", "Não consegui carregar o modelo de voz. Veja oiee-error.log ao lado do app.",
+                                  QSystemTrayIcon.Warning, 5000)
+            self._watching_model = False
+            return
         self.tray.setToolTip("Oiee — carregando modelo…")
+        self._loading_polls += 1
+        if self._loading_polls == 2:
+            #2s e ainda carregando: avisa o usuário (a 1ª vez baixa ~460 MB)
+            self.tray.showMessage("Oiee", "Preparando modelo de voz… (a 1ª vez baixa ~460 MB)",
+                                  QSystemTrayIcon.Information, 4000)
         QTimer.singleShot(1000, self._poll_model_status)
     def open_settings(self):
         dialog = Settings(self.cfg, self)
