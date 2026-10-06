@@ -7,6 +7,25 @@ trabalhando.
 
 ---
 
+## 💻 Requisitos
+
+Antes de baixar, confira se a sua máquina atende:
+
+| Item | Mínimo | Recomendado |
+|------|--------|-------------|
+| Sistema | Windows 10 (64-bit) | Windows 11 |
+| Memória RAM | 4 GB | 8 GB ou mais |
+| Espaço em disco | ~1 GB (modelo padrão `small`) | ~4 GB (se usar `medium`/`large-v3`) |
+| CPU | x86-64 com AVX (Intel/AMD de ~2011 em diante) | — |
+| Internet | só na 1ª execução (download do modelo) | — |
+| Microfone | qualquer microfone/auricular do Windows | — |
+
+> **Quanto mais rápido o modelo, melhor a experiência**: em máquinas com 4 GB
+> de RAM, comece pelo modelo `tiny` ou `base` e suba depois. GPU não é
+> obrigatória — a transcrição roda bem em CPU.
+
+---
+
 ## 📥 Instalação
 
 **Opção 1 — Instalador (recomendado):** baixe `Oiee-Setup-0.1.1.exe` da
@@ -189,6 +208,16 @@ ajustes de UI, performance da transcrição, documentação.
 
 ---
 
+## 💛 Apoie o projeto
+
+O Oiee é gratuito e sem anúncios. Se está te ajudando, você pode apoiar o
+desenvolvimento contínuo via
+**[GitHub Sponsors](https://github.com/sponsors/jessefreire)** — o valor é
+reinvestido em tempo de desenvolvimento, assinaturas de infraestrutura e
+novos recursos.
+
+---
+
 ## 🔧 Para desenvolvedores
 
 ```bash
@@ -244,7 +273,7 @@ flow/
   qt_app.py          # UI Qt: overlay, bandeja, configurações, diálogos
 assets/              # ícones do app
 scripts/             # utilitários (ícone, áudio de teste, build)
-tests/               # testes ponta a ponta (52)
+tests/               # testes ponta a ponta (53)
 build_exe.ps1        # build do .exe com PyInstaller
 installer.iss        # script do instalador (Inno Setup)
 ```
