@@ -132,9 +132,81 @@ _COMMANDS_FR = [
     ("fin de la ligne", "action:end"),
 ]
 
+
+_COMMANDS_DE = [
+    ("fragezeichen", "?"),
+    ("ausrufezeichen", "!"),
+    ("semikolon", ";"),
+    ("punkt", "."),
+    ("doppelpunkt", ":"),
+    ("auslassungspunkte", "…"),
+    ("komma", ","),
+    ("schrägstrich", "/"),
+    ("at-zeichen", "@"),
+    ("öffnende anführungszeichen", '"'),
+    ("schließende anführungszeichen", '"'),
+    ("neue zeile", "\n"),
+    ("neuer absatz", "\n\n"),
+    ("letztes wort löschen", "action:delete_last_word"),
+    ("cursor nach oben", "action:cursor_up"),
+    ("cursor nach unten", "action:cursor_down"),
+    ("cursor nach links", "action:cursor_left"),
+    ("cursor nach rechts", "action:cursor_right"),
+    ("zeilenanfang", "action:home"),
+    ("zeilenende", "action:end"),
+]
+
+_COMMANDS_IT = [
+    ("punto interrogativo", "?"),
+    ("punto esclamativo", "!"),
+    ("punto e virgola", ";"),
+    ("punto", "."),
+    ("due punti", ":"),
+    ("puntini di sospensione", "…"),
+    ("virgola", ","),
+    ("barra", "/"),
+    ("chiocciola", "@"),
+    ("apri virgolette", '"'),
+    ("chiudi virgolette", '"'),
+    ("nuova riga", "\n"),
+    ("nuovo paragrafo", "\n\n"),
+    ("cancella l'ultima parola", "action:delete_last_word"),
+    ("cancella ultima parola", "action:delete_last_word"),
+    ("cursore su", "action:cursor_up"),
+    ("cursore giù", "action:cursor_down"),
+    ("cursore a sinistra", "action:cursor_left"),
+    ("cursore a destra", "action:cursor_right"),
+    ("inizio riga", "action:home"),
+    ("fine riga", "action:end"),
+]
+
+_COMMANDS_NL = [
+    ("vraagteken", "?"),
+    ("uitroepteken", "!"),
+    ("puntkomma", ";"),
+    ("punt", "."),
+    ("dubbele punt", ":"),
+    ("beletselteken", "…"),
+    ("komma", ","),
+    ("schuine streep", "/"),
+    ("apenstaartje", "@"),
+    ("open aanhalingsteken", '"'),
+    ("sluit aanhalingsteken", '"'),
+    ("nieuwe regel", "\n"),
+    ("nieuwe alinea", "\n\n"),
+    ("laatste woord wissen", "action:delete_last_word"),
+    ("cursor omhoog", "action:cursor_up"),
+    ("cursor omlaag", "action:cursor_down"),
+    ("cursor naar links", "action:cursor_left"),
+    ("cursor naar rechts", "action:cursor_right"),
+    ("begin van de regel", "action:home"),
+    ("einde van de regel", "action:end"),
+]
+
 # Idiomas sem tabela própria caem na PT (comandos são palavras exatas:
 # raramente casam em outro idioma, e "arroba"/"barra" funcionam nos dois).
-COMMANDS = {"pt": _COMMANDS_PT, "en": _COMMANDS_EN, "es": _COMMANDS_ES, "fr": _COMMANDS_FR}
+COMMANDS = {"pt": _COMMANDS_PT, "en": _COMMANDS_EN, "es": _COMMANDS_ES, "fr": _COMMANDS_FR,
+            "de": _COMMANDS_DE, "it": _COMMANDS_IT, "nl": _COMMANDS_NL}
 
 
 def _norm(word: str) -> str:
