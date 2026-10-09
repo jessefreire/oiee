@@ -256,6 +256,14 @@ powershell -ExecutionPolicy Bypass -File scripts/make_test_audio.ps1   # gera á
 
 ---
 
+## 📄 Licença
+
+Distribuído sob **GNU GPLv3** (ver [LICENSE](LICENSE)) — pode usar, modificar
+e redistribuir livremente, desde que as derivativas mantenham o código aberto
+e a mesma licença.
+
+---
+
 ## Estrutura
 
 ```
