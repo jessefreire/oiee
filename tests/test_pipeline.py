@@ -841,3 +841,27 @@ if __name__ == "__main__":
     test_second_instance_ping_event()
     test_ping_listener_emits_on_setevent()
     print("\nTodos os testes passaram!")
+
+
+def test_commands_german():
+    clean, actions = parse_commands("hallo welt komma test punkt", "de")
+    assert "," in clean and clean.endswith(".")
+    assert actions == []
+
+
+def test_commands_italian():
+    clean, actions = parse_commands("ciao mondo virgola test punto", "it")
+    assert "," in clean and clean.rstrip().endswith(".")
+    assert actions == []
+
+
+def test_commands_dutch():
+    clean, actions = parse_commands("hallo wereld komma test punt", "nl")
+    assert "," in clean and clean.rstrip().endswith(".")
+    assert actions == []
+
+
+def test_commands_german_delete_word():
+    clean, actions = parse_commands("letztes wort löschen", "de")
+    assert clean == ""
+    assert actions == ["delete_last_word"]
