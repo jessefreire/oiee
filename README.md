@@ -241,6 +241,17 @@ powershell -ExecutionPolicy Bypass -File scripts/make_test_audio.ps1   # gera á
 
 ## Problemas comuns
 
+- **O Windows Defender apaga o Oiee.exe ou aparece "Unable to open file 'model.bin'"**:
+  o executável é feito com PyInstaller, que o Defender às vezes confunde com
+  malware (falso positivo `Trojan:Win32/Bearfoos.A!ml`). Quando isso acontece,
+  ele bloqueia o acesso ao modelo e o ditado falha. **Correção**: adicione
+  pastas ao Defender como exclusão (Precisa de administrador):
+  1. `Win + R` → `windowsdefender:` → **Proteção antivírus e contra ameaças**
+     → **Exclusões** → **Excluir pasta**;
+  2. adicione a pasta de instalação do Oiee (ex.: `D:\Programas\Oiee` ou
+     `C:\Users\<você>\AppData\Local\Programs\Oiee`) e a pasta de cache do
+     modelo (`%USERPROFILE%\.cache\huggingface`, ou onde estiver o `HF_HOME`);
+  3. reinstale o Oiee se o `Oiee.exe` já tiver sido removido.
 - **A primeira fala demora**: o modelo é pré-carregado em background ao abrir
   o app — passe o mouse no ícone da bandeja: "carregando modelo…" vira o
   atalho quando estiver pronto. Na primeiríssima execução ele é baixado
